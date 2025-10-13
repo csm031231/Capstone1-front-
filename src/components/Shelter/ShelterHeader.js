@@ -5,7 +5,7 @@ import { View, Text, StyleSheet } from 'react-native';
 export default function ShelterHeader({ shelterCount, currentLocation }) {
   return (
     <View style={styles.header}>
-      <Text style={styles.title}>🏠 주변 대피소</Text>
+      <Text style={styles.title}>주변 대피소</Text>
       <Text style={styles.subtitle}>총 {shelterCount}곳의 대피소</Text>
       
       {currentLocation && (

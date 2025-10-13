@@ -1,0 +1,290 @@
+// ============================================
+// 📁 src/components/Header/SideMenu.js
+// ============================================
+import React, { useState } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  Modal,
+  ScrollView,
+  Alert,
+} from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import COLORS from '../../constants/colors';
+import UserProfile from './UserProfile';
+
+const SideMenu = ({ visible, onClose, onOpenSettings, theme = 'white' }) => {
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [userInfo] = useState({
+    name: '김해시민',
+    email: 'user@example.com',
+    phone: '010-1234-5678',
+    favoriteLocation: '김해시 장유면'
+  });
+
+  const isDarkTheme = theme === 'black';
+  const sideMenuBg = isDarkTheme ? COLORS.surfaceDark : COLORS.surface;
+  const primaryTextColor = isDarkTheme ? COLORS.textWhite : COLORS.textPrimary;
+  const secondaryTextColor = isDarkTheme ? COLORS.textLight : COLORS.textSecondary;
+  const menuDivider = isDarkTheme ? COLORS.divider : COLORS.border;
+  const menuItemIconBg = isDarkTheme ? COLORS.primaryDark : COLORS.overlayLight;
+
+  const handleLogin = () => {
+    Alert.alert(
+      '로그인',
+      '로그인 기능을 구현하시겠습니까?',
+      [
+        { text: '취소', style: 'cancel' },
+        {
+          text: '데모 로그인',
+          onPress: () => {
+            setIsLoggedIn(true);
+            Alert.alert('성공', '로그인되었습니다.');
+          }
+        }
+      ]
+    );
+  };
+
+  const handleLogout = () => {
+    Alert.alert(
+      '로그아웃',
+      '로그아웃하시겠습니까?',
+      [
+        { text: '취소', style: 'cancel' },
+        {
+          text: '로그아웃',
+          onPress: () => {
+            setIsLoggedIn(false);
+            Alert.alert('완료', '로그아웃되었습니다.');
+          }
+        }
+      ]
+    );
+  };
+
+  const handleMenuItemPress = (item) => {
+    if (item !== 'settings') {
+      onClose();
+    }
+
+    switch (item) {
+      case 'login':
+        handleLogin();
+        break;
+      case 'signup':
+        Alert.alert('회원가입', '회원가입 화면으로 이동합니다.');
+        break;
+      case 'logout':
+        handleLogout();
+        break;
+      case 'interest-location':
+        Alert.alert('관심지역', '관심지역 설정 화면으로 이동합니다.');
+        break;
+      case 'profile-edit':
+        Alert.alert('회원정보수정', '회원정보 수정 화면으로 이동합니다.');
+        break;
+      case 'settings':
+        onOpenSettings();
+        break;
+      case 'help':
+        Alert.alert('도움말', '도움말 및 문의 화면으로 이동합니다.');
+        break;
+    }
+  };
+
+  const guestMenuItems = [
+    { id: 'login', title: '로그인', icon: 'log-in-outline', description: '계정에 로그인하세요' },
+    { id: 'signup', title: '회원가입', icon: 'person-add-outline', description: '새 계정을 만드세요' },
+    { id: 'interest-location', title: '관심지역', icon: 'location-outline', description: '관심 있는 지역을 설정하세요' },
+    { id: 'settings', title: '설정', icon: 'settings-outline', description: '앱 설정을 변경하세요' },
+    { id: 'help', title: '도움말', icon: 'help-circle-outline', description: '사용법 및 문의사항' },
+  ];
+
+  const userMenuItems = [
+    { id: 'profile-edit', title: '회원정보수정', icon: 'create-outline', description: '개인정보를 수정하세요' },
+    { id: 'interest-location', title: '관심지역', icon: 'location-outline', description: '관심 있는 지역을 관리하세요' },
+    { id: 'settings', title: '설정', icon: 'settings-outline', description: '앱 설정을 변경하세요' },
+    { id: 'help', title: '도움말', icon: 'help-circle-outline', description: '사용법 및 문의사항' },
+    { id: 'logout', title: '로그아웃', icon: 'log-out-outline', description: '계정에서 로그아웃' },
+  ];
+
+  const currentMenuItems = isLoggedIn ? userMenuItems : guestMenuItems;
+
+  const renderMenuItem = (item) => (
+    <TouchableOpacity
+      key={item.id}
+      style={[
+        styles.menuItem,
+        item.id === 'logout' && styles.logoutMenuItem,
+        { borderBottomColor: menuDivider }
+      ]}
+      onPress={() => handleMenuItemPress(item.id)}
+      activeOpacity={0.7}
+    >
+      <View style={styles.menuItemContent}>
+        <View style={styles.menuItemLeft}>
+          <View style={[styles.menuItemIconContainer, { backgroundColor: menuItemIconBg }]}>
+            <Ionicons
+              name={item.icon}
+              size={24}
+              color={item.id === 'logout' ? '#ff6666' : primaryTextColor}
+            />
+          </View>
+          <View style={styles.menuItemTextContainer}>
+            <Text style={[
+              styles.menuItemTitle,
+              { color: item.id === 'logout' ? '#ff6666' : primaryTextColor }
+            ]}>
+              {item.title}
+            </Text>
+            <Text style={[styles.menuItemDescription, { color: secondaryTextColor }]}>
+              {item.description}
+            </Text>
+          </View>
+        </View>
+        <Ionicons name="chevron-forward" size={20} color={secondaryTextColor} />
+      </View>
+    </TouchableOpacity>
+  );
+
+  return (
+    <Modal
+      visible={visible}
+      animationType="fade"
+      transparent={true}
+      onRequestClose={onClose}
+    >
+      <View style={styles.modalOverlay}>
+        <TouchableOpacity
+          style={styles.modalBackground}
+          activeOpacity={1}
+          onPress={onClose}
+        />
+
+        <View style={[styles.sideMenuContainer, { backgroundColor: sideMenuBg }]}>
+          <UserProfile
+            isLoggedIn={isLoggedIn}
+            userInfo={userInfo}
+            onClose={onClose}
+          />
+
+          <ScrollView
+            style={styles.menuContent}
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={{ flexGrow: 1 }}
+          >
+            <View style={styles.menuSection}>
+              <Text style={[styles.sectionTitle, { color: primaryTextColor }]}>
+                {isLoggedIn ? '계정 관리' : '시작하기'}
+              </Text>
+              {currentMenuItems.map(renderMenuItem)}
+            </View>
+
+            <View style={[styles.appInfo, { borderTopColor: menuDivider }]}>
+              <Text style={[styles.appName, { color: primaryTextColor }]}>재난안전 앱</Text>
+              <Text style={[styles.appVersion, { color: secondaryTextColor }]}>버전 1.0.0</Text>
+              <Text style={[styles.appDescription, { color: secondaryTextColor }]}>
+                시민을 위한 재난안전 정보 서비스
+              </Text>
+            </View>
+          </ScrollView>
+        </View>
+      </View>
+    </Modal>
+  );
+};
+
+const styles = StyleSheet.create({
+  modalOverlay: {
+    flex: 1,
+    flexDirection: 'row',
+  },
+  modalBackground: {
+    flex: 1,
+  },
+  sideMenuContainer: {
+    width: 340,
+    elevation: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: -4, height: 0 },
+    shadowOpacity: 0.5,
+    shadowRadius: 16,
+  },
+  menuContent: {
+    flex: 1,
+  },
+  menuSection: {
+    paddingTop: 24,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    paddingHorizontal: 24,
+    marginBottom: 16,
+  },
+  menuItem: {
+    paddingHorizontal: 24,
+    paddingVertical: 20,
+    borderBottomWidth: 1,
+    backgroundColor: 'transparent',
+  },
+  logoutMenuItem: {
+    borderBottomColor: '#ff4444',
+    backgroundColor: 'rgba(255, 68, 68, 0.1)',
+  },
+  menuItemContent: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  menuItemLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  menuItemIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 16,
+  },
+  menuItemTextContainer: {
+    flex: 1,
+  },
+  menuItemTitle: {
+    fontSize: 17,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  menuItemDescription: {
+    fontSize: 14,
+    lineHeight: 18,
+  },
+  appInfo: {
+    padding: 24,
+    borderTopWidth: 1,
+    marginTop: 24,
+    alignItems: 'center',
+  },
+  appName: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 6,
+  },
+  appVersion: {
+    fontSize: 15,
+    marginBottom: 12,
+  },
+  appDescription: {
+    fontSize: 13,
+    textAlign: 'center',
+    lineHeight: 18,
+  },
+});
+
+export default SideMenu;

@@ -1,8 +1,9 @@
 // src/components/common/LoadingSpinner.js
 import React from 'react';
 import { View, ActivityIndicator, Text, StyleSheet } from 'react-native';
+import COLORS from '../../constants/colors';
 
-export default function LoadingSpinner({ message = '로딩 중...', size = 'large', color = '#4285f4' }) {
+export default function LoadingSpinner({ message = '로딩 중...', size = 'large', color = COLORS.primary }) {
   return (
     <View style={styles.container}>
       <ActivityIndicator size={size} color={color} />

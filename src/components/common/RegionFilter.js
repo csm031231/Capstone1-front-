@@ -1,6 +1,7 @@
 // src/components/common/RegionFilter.js
 import React from 'react';
 import { View, ScrollView, TouchableOpacity, Text, StyleSheet } from 'react-native';
+import COLORS from '../../constants/colors';
 
 export default function RegionFilter({ 
   regions = [], 
@@ -16,39 +17,51 @@ export default function RegionFilter({
         contentContainerStyle={styles.scrollContent}
       >
         {regions.map((region, index) => {
-          // 구분자인 경우 다르게 렌더링
+          // 구분자인 경우
           if (region.startsWith('---') && region.endsWith('---')) {
             return (
               <View key={`separator-${index}`} style={styles.separator}>
-                <Text style={styles.separatorText}>
-                  {region.replace(/---/g, '')}
-                </Text>
+                <View style={styles.separatorLine} />
               </View>
             );
           }
           
           const newsCount = getRegionNewsCount ? getRegionNewsCount(region) : 0;
           const isEmpty = newsCount === 0 && region !== '전체';
+          const isSelected = selectedRegion === region;
           
           return (
             <TouchableOpacity
               key={region}
               style={[
-                styles.regionButton,
-                selectedRegion === region && styles.selectedRegionButton,
-                isEmpty && styles.emptyRegionButton
+                styles.regionChip,
+                isSelected && styles.selectedChip,
+                isEmpty && styles.emptyChip
               ]}
               onPress={() => !isEmpty && onRegionChange && onRegionChange(region)}
               disabled={isEmpty}
               activeOpacity={0.7}
             >
               <Text style={[
-                styles.regionButtonText,
-                selectedRegion === region && styles.selectedRegionButtonText,
-                isEmpty && styles.emptyRegionButtonText
+                styles.chipText,
+                isSelected && styles.selectedChipText,
+                isEmpty && styles.emptyChipText
               ]}>
-                {region} {newsCount > 0 && `(${newsCount})`}
+                {region}
               </Text>
+              {newsCount > 0 && (
+                <View style={[
+                  styles.countBadge,
+                  isSelected && styles.selectedCountBadge
+                ]}>
+                  <Text style={[
+                    styles.countText,
+                    isSelected && styles.selectedCountText
+                  ]}>
+                    {newsCount}
+                  </Text>
+                </View>
+              )}
             </TouchableOpacity>
           );
         })}
@@ -59,55 +72,74 @@ export default function RegionFilter({
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: '#f8f9fa',
+    backgroundColor: COLORS.surface,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
+    borderBottomColor: COLORS.border,
   },
   scrollContent: {
     paddingHorizontal: 16,
+    gap: 8,
   },
   separator: {
+    width: 1,
+    marginHorizontal: 4,
     justifyContent: 'center',
-    paddingHorizontal: 8,
-    marginRight: 8,
   },
-  separatorText: {
-    fontSize: 12,
-    color: '#999',
-    fontWeight: '600',
-    fontStyle: 'italic',
+  separatorLine: {
+    width: 1,
+    height: 20,
+    backgroundColor: COLORS.divider,
   },
-  regionButton: {
-    paddingHorizontal: 16,
+  regionChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
     paddingVertical: 8,
-    marginRight: 8,
     borderRadius: 20,
-    backgroundColor: '#ffffff',
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
-    minWidth: 50,
+    backgroundColor: COLORS.background,
+    borderWidth: 1.5,
+    borderColor: COLORS.border,
+    marginRight: 0,
+  },
+  selectedChip: {
+    backgroundColor: COLORS.primary,
+    borderColor: COLORS.primary,
+  },
+  emptyChip: {
+    backgroundColor: COLORS.background,
+    borderColor: COLORS.divider,
+    opacity: 0.5,
+  },
+  chipText: {
+    fontSize: 14,
+    color: COLORS.textSecondary,
+    fontWeight: '600',
+  },
+  selectedChipText: {
+    color: COLORS.textWhite,
+  },
+  emptyChipText: {
+    color: COLORS.textLight,
+  },
+  countBadge: {
+    marginLeft: 6,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 10,
+    backgroundColor: COLORS.primary,
+    minWidth: 20,
     alignItems: 'center',
   },
-  selectedRegionButton: {
-    backgroundColor: '#4285f4',
-    borderColor: '#4285f4',
+  selectedCountBadge: {
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
   },
-  emptyRegionButton: {
-    backgroundColor: '#f0f0f0',
-    borderColor: '#ddd',
-    opacity: 0.6,
+  countText: {
+    fontSize: 11,
+    color: COLORS.textWhite,
+    fontWeight: '700',
   },
-  regionButtonText: {
-    fontSize: 14,
-    color: '#666',
-    fontWeight: '500',
-  },
-  selectedRegionButtonText: {
-    color: '#ffffff',
-    fontWeight: '600',
-  },
-  emptyRegionButtonText: {
-    color: '#999',
+  selectedCountText: {
+    color: COLORS.textWhite,
   },
 });

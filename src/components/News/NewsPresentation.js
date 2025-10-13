@@ -7,6 +7,7 @@ import NewsList from './NewsList';
 import LoadingSpinner from '../common/LoadingSpinner';
 import ErrorMessage from '../common/ErrorMessage';
 import EmptyState from '../common/EmptyState';
+import COLORS from '../../constants/colors';
 
 export default function NewsPresentation({
   news,
@@ -29,17 +30,17 @@ export default function NewsPresentation({
 
   return (
     <View style={styles.container}>
+      <NewsHeader
+        selectedRegion={selectedRegion}
+        newsCount={news.length}
+        currentLocation={currentLocation}
+      />
+
       <RegionFilter
         regions={availableRegions}
         selectedRegion={selectedRegion}
         onRegionChange={onRegionChange}
         getRegionNewsCount={getRegionNewsCount}
-      />
-
-      <NewsHeader
-        selectedRegion={selectedRegion}
-        newsCount={news.length}
-        currentLocation={currentLocation}
       />
 
       {loading && news.length === 0 ? (
@@ -67,6 +68,7 @@ export default function NewsPresentation({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#ffffff',
+    backgroundColor: COLORS.background,
+    overflow: 'hidden',
   },
 });

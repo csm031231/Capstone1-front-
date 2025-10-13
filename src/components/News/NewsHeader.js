@@ -2,34 +2,28 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { utils } from '../../services/ApiService';
+import COLORS from '../../constants/colors';
 
 export default function NewsHeader({ selectedRegion, newsCount, currentLocation }) {
   const getCurrentLocationText = () => {
     if (!currentLocation) return '위치 정보 없음';
     const detectedRegion = utils.detectRegionFromLocation(currentLocation);
-    return detectedRegion === '전체' ? '알 수 없는 지역' : `${detectedRegion} 지역`;
+    return detectedRegion === '전체' ? '알 수 없는 지역' : detectedRegion;
   };
 
   return (
     <View style={styles.header}>
-      <Text style={styles.title}>📰 재난 뉴스</Text>
-      <Text style={styles.subtitle}>
-        {selectedRegion === '전체' ? 
-          `총 ${newsCount}건의 뉴스` : 
-          `${selectedRegion} 지역 ${newsCount}건의 뉴스`
-        }
-      </Text>
-      
-      <View style={styles.locationInfo}>
-        <Text style={styles.locationText}>
-          현재 위치: {getCurrentLocationText()}
-        </Text>
-        {currentLocation && (
-          <Text style={styles.coordinatesText}>
-            {currentLocation.latitude?.toFixed(4)}, {currentLocation.longitude?.toFixed(4)}
+      <View style={styles.titleRow}>
+        <View style={styles.titleContent}>
+          <Text style={styles.title}>재난 뉴스</Text>
+          <Text style={styles.subtitle}>
+            {selectedRegion === '전체' ? 
+              `전국 ${newsCount}건` : 
+              `${selectedRegion} ${newsCount}건`
+            }
           </Text>
-        )}
-      </View>
+        </View>
+      </View>       
     </View>
   );
 }
@@ -37,36 +31,57 @@ export default function NewsHeader({ selectedRegion, newsCount, currentLocation 
 const styles = StyleSheet.create({
   header: {
     paddingHorizontal: 16,
-    paddingVertical: 16,
+    paddingTop: 5,
+    paddingBottom: 12,
+    backgroundColor: COLORS.surface,
     borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
-    backgroundColor: '#ffffff',
+    borderBottomColor: COLORS.border,
+  },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  iconCircle: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: COLORS.overlayLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  icon: {
+    fontSize: 24,
+  },
+  titleContent: {
+    flex: 1,
   },
   title: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 4,
+    fontSize: 22,
+    left: 13,
+    fontWeight: '700',
+    color: COLORS.textPrimary,
+    marginBottom: 2,
   },
   subtitle: {
     fontSize: 14,
-    color: '#666',
-    marginBottom: 8,
+    left: 13,
+    color: COLORS.textSecondary,
+    fontWeight: '500',
   },
-  locationInfo: {
-    backgroundColor: '#e3f2fd',
-    padding: 12,
-    borderRadius: 8,
+  locationBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.overlayLight,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    alignSelf: 'flex-start',
   },
   locationText: {
-    fontSize: 14,
-    color: '#1976d2',
+    fontSize: 13,
+    color: COLORS.primary,
     fontWeight: '600',
-    marginBottom: 4,
-  },
-  coordinatesText: {
-    fontSize: 12,
-    color: '#1976d2',
-    opacity: 0.8,
   },
 });

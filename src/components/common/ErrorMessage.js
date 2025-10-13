@@ -2,6 +2,7 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import COLORS from '../../constants/colors';
 
 export default function ErrorMessage({ message, onRetry, showRetryButton = true }) {
   return (
@@ -46,7 +47,7 @@ const styles = StyleSheet.create({
   retryButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#4285f4',
+    backgroundColor: COLORS.primary,
     paddingHorizontal: 20,
     paddingVertical: 12,
     borderRadius: 8,
