@@ -54,18 +54,7 @@ export default function NewsItem({ news, onPress }) {
           )}
         </View>
 
-        {/* 오른쪽: 썸네일 이미지 */}
-        <View style={[styles.thumbnail, { backgroundColor: thumbnailColor }]}>
-          {hasImage ? (
-            <Image 
-              source={{ uri: news.image_url }} 
-              style={styles.thumbnailImage}
-              resizeMode="cover"
-            />
-          ) : (
-            <Text style={styles.thumbnailIcon}>📰</Text>
-          )}
-        </View>
+        
       </View>
     </TouchableOpacity>
   );
