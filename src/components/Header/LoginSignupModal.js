@@ -1,5 +1,5 @@
 // ============================================
-// 📝 src/components/Header/LoginSignupModal.js (키보드 수정)
+// 📝 src/components/Header/LoginSignupModal.js (최종 수정 버전)
 // ============================================
 import React, { useState, useCallback, useEffect } from 'react';
 import {
@@ -192,7 +192,7 @@ const LoginSignupModal = ({ visible, initialMode = 'login', onClose, onLoginSucc
                 returnKeyType="next"
                 onFocus={() => setFocusedField('email')}
                 onBlur={() => setFocusedField(null)}
-                blurOnSubmit={false}
+                // blurOnSubmit={false} 속성 제거
               />
             </View>
           </View>
@@ -226,7 +226,7 @@ const LoginSignupModal = ({ visible, initialMode = 'login', onClose, onLoginSucc
                       returnKeyType="next"
                       onFocus={() => setFocusedField('username')}
                       onBlur={() => setFocusedField(null)}
-                      blurOnSubmit={false}
+                      // blurOnSubmit={false} 속성 제거
                     />
                   </View>
                 </View>
@@ -253,7 +253,7 @@ const LoginSignupModal = ({ visible, initialMode = 'login', onClose, onLoginSucc
                       returnKeyType="next"
                       onFocus={() => setFocusedField('nickname')}
                       onBlur={() => setFocusedField(null)}
-                      blurOnSubmit={false}
+                      // blurOnSubmit={false} 속성 제거
                     />
                   </View>
                 </View>
@@ -276,7 +276,7 @@ const LoginSignupModal = ({ visible, initialMode = 'login', onClose, onLoginSucc
                       returnKeyType="next"
                       onFocus={() => setFocusedField('phone')}
                       onBlur={() => setFocusedField(null)}
-                      blurOnSubmit={false}
+                      // blurOnSubmit={false} 속성 제거
                     />
                   </View>
                 </View>
@@ -304,7 +304,8 @@ const LoginSignupModal = ({ visible, initialMode = 'login', onClose, onLoginSucc
                 onFocus={() => setFocusedField('password')}
                 onBlur={() => setFocusedField(null)}
                 onSubmitEditing={isLogin ? handleLogin : handleSignup}
-                blurOnSubmit={false}
+                // ✅ 마지막 필드이므로, 포커스 문제 해결을 위해 명시적으로 true 설정
+                blurOnSubmit={true} 
               />
             </View>
           </View>
