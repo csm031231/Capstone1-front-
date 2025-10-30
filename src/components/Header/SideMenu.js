@@ -1,7 +1,7 @@
 // ============================================
-// 📁 src/components/Header/SideMenu.js
+// 📁 src/components/Header/SideMenu.js (로그인 기능 추가)
 // ============================================
-import React, { useState } from 'react';
+import React from 'react';
 import {
   View,
   Text,
@@ -13,17 +13,15 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import COLORS from '../../constants/colors';
-import UserProfile from './UserProfile';
 
-const SideMenu = ({ visible, onClose, onOpenSettings, theme = 'white' }) => {
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [userInfo] = useState({
-    name: '김해시민',
-    email: 'user@example.com',
-    phone: '010-1234-5678',
-    favoriteLocation: '김해시 장유면'
-  });
-
+const SideMenu = ({ 
+  visible, 
+  onClose, 
+  onMenuItemPress, 
+  theme = 'white',
+  isLoggedIn = false,
+  userInfo = null 
+}) => {
   const isDarkTheme = theme === 'black';
   const sideMenuBg = isDarkTheme ? COLORS.surfaceDark : COLORS.surface;
   const primaryTextColor = isDarkTheme ? COLORS.textWhite : COLORS.textPrimary;
@@ -31,87 +29,32 @@ const SideMenu = ({ visible, onClose, onOpenSettings, theme = 'white' }) => {
   const menuDivider = isDarkTheme ? COLORS.divider : COLORS.border;
   const menuItemIconBg = isDarkTheme ? COLORS.primaryDark : COLORS.overlayLight;
 
-  const handleLogin = () => {
-    Alert.alert(
-      '로그인',
-      '로그인 기능을 구현하시겠습니까?',
-      [
-        { text: '취소', style: 'cancel' },
-        {
-          text: '데모 로그인',
-          onPress: () => {
-            setIsLoggedIn(true);
-            Alert.alert('성공', '로그인되었습니다.');
-          }
-        }
-      ]
-    );
-  };
-
-  const handleLogout = () => {
-    Alert.alert(
-      '로그아웃',
-      '로그아웃하시겠습니까?',
-      [
-        { text: '취소', style: 'cancel' },
-        {
-          text: '로그아웃',
-          onPress: () => {
-            setIsLoggedIn(false);
-            Alert.alert('완료', '로그아웃되었습니다.');
-          }
-        }
-      ]
-    );
-  };
-
-  const handleMenuItemPress = (item) => {
-    if (item !== 'settings') {
-      onClose();
-    }
-
-    switch (item) {
-      case 'login':
-        handleLogin();
-        break;
-      case 'signup':
-        Alert.alert('회원가입', '회원가입 화면으로 이동합니다.');
-        break;
-      case 'logout':
-        handleLogout();
-        break;
-      case 'interest-location':
-        Alert.alert('관심지역', '관심지역 설정 화면으로 이동합니다.');
-        break;
-      case 'profile-edit':
-        Alert.alert('회원정보수정', '회원정보 수정 화면으로 이동합니다.');
-        break;
-      case 'settings':
-        onOpenSettings();
-        break;
-      case 'help':
-        Alert.alert('도움말', '도움말 및 문의 화면으로 이동합니다.');
-        break;
-    }
-  };
-
+  // 비로그인 메뉴
   const guestMenuItems = [
     { id: 'login', title: '로그인', icon: 'log-in-outline', description: '계정에 로그인하세요' },
     { id: 'signup', title: '회원가입', icon: 'person-add-outline', description: '새 계정을 만드세요' },
-    { id: 'interest-location', title: '관심지역', icon: 'location-outline', description: '관심 있는 지역을 설정하세요' },
     { id: 'settings', title: '설정', icon: 'settings-outline', description: '앱 설정을 변경하세요' },
     { id: 'help', title: '도움말', icon: 'help-circle-outline', description: '사용법 및 문의사항' },
   ];
 
+  // 로그인 메뉴
   const userMenuItems = [
-    { id: 'profile-edit', title: '회원정보수정', icon: 'create-outline', description: '개인정보를 수정하세요' },
-    { id: 'interest-location', title: '관심지역', icon: 'location-outline', description: '관심 있는 지역을 관리하세요' },
+    { id: 'mypage', title: '회원정보수정', icon: 'create-outline', description: '개인정보를 수정하세요' },
     { id: 'settings', title: '설정', icon: 'settings-outline', description: '앱 설정을 변경하세요' },
     { id: 'help', title: '도움말', icon: 'help-circle-outline', description: '사용법 및 문의사항' },
     { id: 'logout', title: '로그아웃', icon: 'log-out-outline', description: '계정에서 로그아웃' },
   ];
 
   const currentMenuItems = isLoggedIn ? userMenuItems : guestMenuItems;
+
+  const handleMenuPress = (itemId) => {
+    if (itemId === 'help') {
+      Alert.alert('도움말', '도움말 및 문의 화면으로 이동합니다.');
+      onClose();
+    } else {
+      onMenuItemPress(itemId);
+    }
+  };
 
   const renderMenuItem = (item) => (
     <TouchableOpacity
@@ -121,7 +64,7 @@ const SideMenu = ({ visible, onClose, onOpenSettings, theme = 'white' }) => {
         item.id === 'logout' && styles.logoutMenuItem,
         { borderBottomColor: menuDivider }
       ]}
-      onPress={() => handleMenuItemPress(item.id)}
+      onPress={() => handleMenuPress(item.id)}
       activeOpacity={0.7}
     >
       <View style={styles.menuItemContent}>
@@ -165,12 +108,42 @@ const SideMenu = ({ visible, onClose, onOpenSettings, theme = 'white' }) => {
         />
 
         <View style={[styles.sideMenuContainer, { backgroundColor: sideMenuBg }]}>
-          <UserProfile
-            isLoggedIn={isLoggedIn}
-            userInfo={userInfo}
-            onClose={onClose}
-          />
+          {/* 사용자 프로필 헤더 */}
+          <View style={styles.menuHeader}>
+            <View style={styles.userSection}>
+              {isLoggedIn ? (
+                <>
+                  <View style={styles.userAvatar}>
+                    <Ionicons name="person" size={28} color="#ffffff" />
+                  </View>
+                  <View style={styles.userInfo}>
+                    <Text style={styles.userName}>
+                      {userInfo?.nickname || userInfo?.username || '사용자'}
+                    </Text>
+                    <Text style={styles.userEmail}>{userInfo?.email || ''}</Text>
+                  </View>
+                </>
+              ) : (
+                <>
+                  <View style={styles.guestAvatar}>
+                    <Ionicons name="person-outline" size={28} color="#ffffff" />
+                  </View>
+                  <View style={styles.guestInfo}>
+                    <Text style={styles.guestTitle}>안녕하세요!</Text>
+                    <Text style={styles.guestSubtitle}>
+                      로그인하여 더 많은 서비스를 이용하세요
+                    </Text>
+                  </View>
+                </>
+              )}
+            </View>
 
+            <TouchableOpacity style={styles.closeButton} onPress={onClose}>
+              <Ionicons name="close" size={24} color="#ffffff" />
+            </TouchableOpacity>
+          </View>
+
+          {/* 메뉴 리스트 */}
           <ScrollView
             style={styles.menuContent}
             showsVerticalScrollIndicator={false}
@@ -183,6 +156,7 @@ const SideMenu = ({ visible, onClose, onOpenSettings, theme = 'white' }) => {
               {currentMenuItems.map(renderMenuItem)}
             </View>
 
+            {/* 앱 정보 */}
             <View style={[styles.appInfo, { borderTopColor: menuDivider }]}>
               <Text style={[styles.appName, { color: primaryTextColor }]}>재난안전 앱</Text>
               <Text style={[styles.appVersion, { color: secondaryTextColor }]}>버전 1.0.0</Text>
@@ -204,6 +178,7 @@ const styles = StyleSheet.create({
   },
   modalBackground: {
     flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
   },
   sideMenuContainer: {
     width: 340,
@@ -212,6 +187,79 @@ const styles = StyleSheet.create({
     shadowOffset: { width: -4, height: 0 },
     shadowOpacity: 0.5,
     shadowRadius: 16,
+  },
+  menuHeader: {
+    backgroundColor: COLORS.primary,
+    paddingTop: 50,
+    paddingBottom: 24,
+    paddingHorizontal: 24,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+  },
+  userSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  userAvatar: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 16,
+    borderWidth: 2,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+  },
+  userInfo: {
+    flex: 1,
+  },
+  userName: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#ffffff',
+    marginBottom: 4,
+  },
+  userEmail: {
+    fontSize: 14,
+    color: 'rgba(255, 255, 255, 0.9)',
+  },
+  guestAvatar: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 16,
+    borderWidth: 2,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+  },
+  guestInfo: {
+    flex: 1,
+  },
+  guestTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#ffffff',
+    marginBottom: 6,
+  },
+  guestSubtitle: {
+    fontSize: 14,
+    color: 'rgba(255, 255, 255, 0.9)',
+    lineHeight: 20,
+  },
+  closeButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
   },
   menuContent: {
     flex: 1,

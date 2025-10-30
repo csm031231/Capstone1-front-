@@ -10,11 +10,15 @@ export const ActionTypes = {
   SET_SEARCH_TEXT: 'SET_SEARCH_TEXT',
   SET_NEWS: 'SET_NEWS',
   SET_SHELTERS: 'SET_SHELTERS',
+  SET_MESSAGES: 'SET_MESSAGES',           // 새로 추가
+  SET_ACTIONS: 'SET_ACTIONS',             // 새로 추가
   SET_LOADING: 'SET_LOADING',
   SET_ERROR: 'SET_ERROR',
   CLEAR_ERROR: 'CLEAR_ERROR',
   SET_MAP_READY: 'SET_MAP_READY',
-  SET_SHOW_SHELTERS: 'SET_SHOW_SHELTERS'
+  SET_SHOW_SHELTERS: 'SET_SHOW_SHELTERS',
+  SET_USER_INFO: 'SET_USER_INFO',         // 새로 추가
+  SET_IS_LOGGED_IN: 'SET_IS_LOGGED_IN',   // 새로 추가
 };
 
 // 대한민국 중심 좌표 (서울 시청)
@@ -51,18 +55,31 @@ const validateAndFilterLocation = (location) => {
 const initialState = {
   currentLocation: KOREA_DEFAULT_LOCATION,
   currentViewport: null,
-  selectedTab: null,
+  selectedTab: '재난문자',
   searchText: '',
+  
+  // 데이터
   news: [],
   shelters: [],
+  messages: [],    // 새로 추가
+  actions: [],     // 새로 추가
+  
+  // 로딩 상태
   loading: {
     news: false,
     shelters: false,
+    messages: false,    // 새로 추가
+    actions: false,     // 새로 추가
     location: false
   },
+  
   error: null,
   mapReady: false,
-  showShelters: true
+  showShelters: true,
+  
+  // 사용자 인증
+  isLoggedIn: false,  // 새로 추가
+  userInfo: null,     // 새로 추가
 };
 
 // 리듀서
@@ -127,6 +144,8 @@ function appReducer(state, action) {
         loading: {
           news: false,
           shelters: false,
+          messages: false,    // 새로 추가
+          actions: false,     // 새로 추가
           location: false
         }
       };
@@ -148,7 +167,37 @@ function appReducer(state, action) {
         ...state,
         showShelters: action.payload
       };
-      
+    // 새 reducer 케이스들 추가
+    // ============================================
+    case ActionTypes.SET_MESSAGES: {
+      const messagesData = Array.isArray(action.payload) ? action.payload : [];
+      return {
+        ...state,
+        messages: messagesData,
+      };
+    }
+
+    case ActionTypes.SET_ACTIONS: {
+      const actionsData = Array.isArray(action.payload) ? action.payload : [];
+      return {
+        ...state,
+        actions: actionsData,
+      };
+    }
+
+    case ActionTypes.SET_USER_INFO:
+      return {
+        ...state,
+        userInfo: action.payload,
+        isLoggedIn: action.payload !== null,
+      };
+
+    case ActionTypes.SET_IS_LOGGED_IN:
+      return {
+        ...state,
+        isLoggedIn: action.payload,
+      };
+    // ============================================
     default:
       console.warn(`Unknown action type: ${action.type}`);
       return state;
@@ -310,5 +359,25 @@ export const actions = {
   setShowShelters: (show) => ({
     type: ActionTypes.SET_SHOW_SHELTERS,
     payload: show
-  })
+  }),
+  // 새 action creators 추가
+  setMessages: (messages) => ({
+    type: ActionTypes.SET_MESSAGES,
+    payload: Array.isArray(messages) ? messages : [],
+  }),
+
+  setActions: (actions) => ({
+    type: ActionTypes.SET_ACTIONS,
+    payload: Array.isArray(actions) ? actions : [],
+  }),
+
+  setUserInfo: (userInfo) => ({
+    type: ActionTypes.SET_USER_INFO,
+    payload: userInfo,
+  }),
+
+  setIsLoggedIn: (isLoggedIn) => ({
+    type: ActionTypes.SET_IS_LOGGED_IN,
+    payload: isLoggedIn,
+  }),
 };

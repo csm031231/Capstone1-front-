@@ -1,10 +1,13 @@
 // ============================================
 // 📁 src/components/BottomSheet/ActionContent.js
 // ============================================
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import AIChatbotModal from '../common/AIChatbotModal';
 
 const ActionContent = () => {
+  const [showAiChat, setShowAiChat] = useState(false);
+
   const mockActions = [
     {
       id: 1,
@@ -37,31 +40,42 @@ const ActionContent = () => {
   ];
 
   return (
-    <ScrollView style={styles.scrollView}>
-      <View style={styles.content}>
-        <Text style={styles.title}>🤖 재난 행동요령</Text>
-        <Text style={styles.text}>AI 도우미와 대화하거나 아래 요령을 확인하세요</Text>
-        
-        <TouchableOpacity style={styles.aiChatButton}>
-          <Text style={styles.aiChatButtonText}>AI 도우미와 채팅하기</Text>
-        </TouchableOpacity>
-        
-        <View style={styles.itemList}>
-          {mockActions.map((item) => (
-            <TouchableOpacity key={item.id} style={styles.actionItem}>
-              <View style={[styles.actionIcon, { backgroundColor: item.color }]}>
-                <Text style={styles.actionIconText}>{item.icon}</Text>
-              </View>
-              <View style={styles.actionContent}>
-                <Text style={styles.actionTitle}>{item.title}</Text>
-                <Text style={styles.actionSubtitle}>{item.subtitle}</Text>
-              </View>
-              <Text style={styles.actionArrow}>›</Text>
-            </TouchableOpacity>
-          ))}
+    <>
+      <ScrollView style={styles.scrollView}>
+        <View style={styles.content}>
+          <Text style={styles.title}>🤖 재난 행동요령</Text>
+          <Text style={styles.text}>AI 도우미와 대화하거나 아래 요령을 확인하세요</Text>
+          
+          <TouchableOpacity 
+            style={styles.aiChatButton}
+            onPress={() => setShowAiChat(true)}
+          >
+            <Text style={styles.aiChatButtonText}>AI 도우미와 채팅하기</Text>
+          </TouchableOpacity>
+          
+          <View style={styles.itemList}>
+            {mockActions.map((item) => (
+              <TouchableOpacity key={item.id} style={styles.actionItem}>
+                <View style={[styles.actionIcon, { backgroundColor: item.color }]}>
+                  <Text style={styles.actionIconText}>{item.icon}</Text>
+                </View>
+                <View style={styles.actionContent}>
+                  <Text style={styles.actionTitle}>{item.title}</Text>
+                  <Text style={styles.actionSubtitle}>{item.subtitle}</Text>
+                </View>
+                <Text style={styles.actionArrow}>›</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
         </View>
-      </View>
-    </ScrollView>
+      </ScrollView>
+
+      <AIChatbotModal
+        visible={showAiChat}
+        onClose={() => setShowAiChat(false)}
+        initialMessage="특정 재난 행동요령을 알려주세요"
+      />
+    </>
   );
 };
 

@@ -2,18 +2,28 @@
 import React, { useEffect, useState } from 'react';
 import { View, Keyboard, StyleSheet, Alert } from 'react-native';
 import { useAppState, useAppDispatch, actions } from '../store/AppContext';
-import { apiService } from '../services/ApiService';
+import { apiService } from '../services/apiConfig';
+import userService from '../services/userService';
+import emergencyMessageService from '../services/emergencyMessageService';
+import disasterActionService from '../services/disasterActionService';
+
 import Header from '../components/Header/Header';
 import MapContainer from '../components/Map/MapContainer';
 import BottomSheet from '../components/BottomSheet/BottomSheet';
 import BottomNavigation from '../components/Navigation/BottomNavigation';
 import ErrorToast from '../components/common/ErrorToast';
+import LoginSignupModal from '../components/Header/LoginSignupModal';
+import MyPageScreen from '../components/Header/UserProfile';
 
 export default function MainScreen() {
-  const { currentLocation, currentViewport, selectedTab, error, shelters } = useAppState();
+  const { currentLocation, currentViewport, selectedTab, error, shelters, isLoggedIn: contextIsLoggedIn, userInfo: contextUserInfo  } = useAppState();
   const dispatch = useAppDispatch();
   const [theme, setTheme] = useState('white');
   const [searchText, setSearchText] = useState('');
+  const [isLoggedIn, setIsLoggedIn] = useState(contextIsLoggedIn || false);
+  const [userInfo, setUserInfo] = useState(contextUserInfo || null);
+  const [showLoginModal, setShowLoginModal] = useState(false);
+  const [showMyPage, setShowMyPage] = useState(false);
   const mapRef = React.useRef(null);
   
   // 지역별 좌표 데이터
@@ -48,6 +58,30 @@ export default function MainScreen() {
     '제주': { latitude: 33.4996, longitude: 126.5312 },
   };
   
+  // 초기 로그인 상태 체크
+  useEffect(() => {
+    checkLoginStatus();
+  }, []);
+  
+  const checkLoginStatus = async () => {
+    try {
+      const isValid = await userService.checkToken();
+      setIsLoggedIn(isValid);
+      
+      if (isValid) {
+        const info = await userService.getUserInfo();
+        setUserInfo(info);
+        
+        // Context에도 저장
+        dispatch(actions.setUserInfo(info));
+      }
+    } catch (error) {
+      console.error('로그인 상태 체크 실패:', error);
+      setIsLoggedIn(false);
+      setUserInfo(null);
+    }
+  };
+
   // viewport 변경시 대피소 데이터 자동 로드
   useEffect(() => {
     if (currentViewport && selectedTab === '대피소') {
@@ -55,11 +89,63 @@ export default function MainScreen() {
     }
   }, [currentViewport, selectedTab]);
   
+  // 탭 변경시 데이터 로드
+  useEffect(() => {
+    switch (selectedTab) {
+      case '재난문자':
+        loadMessages();
+        break;
+      case '뉴스':
+        loadNews();
+        break;
+      case '재난행동요령':
+        loadActions();
+        break;
+      default:
+        break;
+    }
+  }, [selectedTab]);
+  
+  // 재난문자 로드
+  const loadMessages = async () => {
+    try {
+      dispatch(actions.setLoading('messages', true));
+      const region = '김해시'; // 또는 현재 위치 기반
+      const response = await emergencyMessageService.getEmergencyMessages(region);
+      
+      if (response.success) {
+        dispatch(actions.setMessages(response.messages));
+      }
+    } catch (error) {
+      console.error('재난문자 로드 실패:', error);
+      dispatch(actions.setError('재난문자를 불러올 수 없습니다'));
+    } finally {
+      dispatch(actions.setLoading('messages', false));
+    }
+  };
+
   // 뉴스는 컴포넌트 마운트 시 한 번만 로드
   useEffect(() => {
     loadNews();
   }, []);
   
+  // 재난행동요령 로드
+  const loadActions = async () => {
+    try {
+      dispatch(actions.setLoading('actions', true));
+      const response = await disasterActionService.getAllActions(1, 10);
+      
+      if (response.success) {
+        dispatch(actions.setActions(response.items));
+      }
+    } catch (error) {
+      console.error('재난행동요령 로드 실패:', error);
+      dispatch(actions.setError('재난행동요령을 불러올 수 없습니다'));
+    } finally {
+      dispatch(actions.setLoading('actions', false));
+    }
+  };
+
   // 테마 변경 핸들러
   const handleThemeChange = (newTheme) => {
     setTheme(newTheme);
@@ -180,6 +266,31 @@ export default function MainScreen() {
       '검색 결과 없음',
       `"${query}"에 대한 검색 결과가 없습니다.\n\n지역명(예: 김해, 부산, 서울)이나 대피소명을 입력해주세요.`
     );
+  };
+  // 탭 변경 핸들러
+  const handleTabChange = (tab) => {
+    dispatch(actions.setSelectedTab(tab));
+  };
+
+  // 로그인 성공 핸들러
+  const handleLoginSuccess = async (loginData) => {
+    setShowLoginModal(false);
+    await checkLoginStatus();
+    Alert.alert('로그인 성공', '환영합니다!');
+  };
+
+  // 로그아웃 핸들러
+  const handleLogout = async () => {
+    try {
+      await userService.logout();
+      setIsLoggedIn(false);
+      setUserInfo(null);
+      dispatch(actions.setUserInfo(null));
+      Alert.alert('로그아웃', '로그아웃되었습니다.');
+    } catch (error) {
+      console.error('로그아웃 실패:', error);
+      Alert.alert('오류', '로그아웃 중 오류가 발생했습니다.');
+    }
   };
 
   // 지도 터치시 키보드 닫기

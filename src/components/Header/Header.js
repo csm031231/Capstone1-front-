@@ -1,27 +1,155 @@
-// ============================================
-// 📁 src/components/Header/Header.js (수정된 버전)
-// ============================================
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { View, StyleSheet, TextInput, TouchableOpacity, Keyboard } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import COLORS from '../../constants/colors';
 import SideMenu from './SideMenu';
 import SettingsModal from './SettingsModal';
+import LoginSignupModal from './LoginSignupModal';
+import MyPageScreen from './UserProfile';
+import userService from '../../services/userService';
+
+// 🔧 TEST_MODE 설정
+const TEST_MODE = false;
 
 const Header = ({ searchText, setSearchText, onSearch, theme = 'white', onThemeChange }) => {
   const [showSideMenu, setShowSideMenu] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
-  const searchInputRef = useRef(null);  // ⭐ ref 추가
+  const [showLoginModal, setShowLoginModal] = useState(false);
+  const [showMyPage, setShowMyPage] = useState(false);
+  const [modalMode, setModalMode] = useState('login');
+  const [isLoggedIn, setIsLoggedIn] = useState(TEST_MODE);
+  const [userInfo, setUserInfo] = useState(TEST_MODE ? {
+    id: 'test_user_001',
+    username: 'testuser',
+    nickname: '김해시민',
+    email: 'test@kimhae.go.kr',
+    phone: '010-1234-5678',
+    created_at: '2024-01-15T09:30:00Z',
+  } : null);
+  const [loading, setLoading] = useState(false);
+  const searchInputRef = useRef(null);
 
   const isDarkTheme = theme === 'black';
 
-  // 테마에 따른 색상
   const searchBg = isDarkTheme ? COLORS.surfaceDark : COLORS.surface;
   const searchBorder = isDarkTheme ? COLORS.primaryDark : COLORS.primary;
   const primaryTextColor = isDarkTheme ? COLORS.textWhite : COLORS.textPrimary;
   const secondaryTextColor = isDarkTheme ? COLORS.textLight : COLORS.textSecondary;
   const menuButtonBg = isDarkTheme ? COLORS.surfaceDark : COLORS.surface;
   const menuButtonIconColor = isDarkTheme ? COLORS.textWhite : COLORS.primary;
+
+  useEffect(() => {
+    if (!TEST_MODE) {
+      loadUserInfo();
+    } else {
+      console.log('✅ TEST_MODE 활성화 - 백엔드 없이 UI 테스트 가능');
+    }
+  }, []);
+
+  const loadUserInfo = async () => {
+    if (TEST_MODE) return;
+    
+    try {
+      setLoading(true);
+      const isTokenValid = await userService.checkToken();
+      
+      if (isTokenValid) {
+        const userData = await userService.getUserInfo();
+        setUserInfo(userData);
+        setIsLoggedIn(true);
+      } else {
+        setIsLoggedIn(false);
+        setUserInfo(null);
+      }
+    } catch (error) {
+      console.error('사용자 정보 로드 실패 (Header):', error);
+      setIsLoggedIn(false);
+      setUserInfo(null);
+    } finally {
+      // API 실패/성공과 관계없이 로딩 상태 해제
+      setLoading(false); 
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      setLoading(true);
+      if (!TEST_MODE) {
+        await userService.logout();
+      }
+      setIsLoggedIn(false);
+      setUserInfo(null);
+      setShowSideMenu(false);
+      setShowMyPage(false);
+    } catch (error) {
+      console.error('로그아웃 실패:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleLoginSuccess = async (loginData) => {
+    try {
+      setShowLoginModal(false);
+      
+      if (!TEST_MODE) {
+        setLoading(true);
+        // 로그인 성공 후 정보 로드 시, 이미 토큰이 저장되어 있으므로 실패 위험 적음
+        await loadUserInfo(); 
+      } else {
+        setIsLoggedIn(true);
+        setUserInfo({
+          id: 'test_user_001',
+          username: loginData.username || 'testuser',
+          nickname: '김해시민',
+          email: loginData.email || 'test@kimhae.go.kr',
+          phone: '010-1234-5678',
+          created_at: new Date().toISOString(),
+        });
+      }
+    } catch (error) {
+      console.error('로그인 후 처리 실패:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleMenuItemPress = (itemId) => {
+    switch (itemId) {
+      case 'login':
+        setShowSideMenu(false);
+        setTimeout(() => {
+          setModalMode('login');
+          setShowLoginModal(true);
+        }, 300);
+        break;
+        
+      case 'signup':
+        setShowSideMenu(false);
+        setTimeout(() => {
+          setModalMode('signup');
+          setShowLoginModal(true);
+        }, 300);
+        break;
+        
+      case 'mypage':
+        setShowSideMenu(false);
+        setTimeout(() => setShowMyPage(true), 300);
+        break;
+        
+      case 'logout':
+        setShowSideMenu(false);
+        handleLogout();
+        break;
+        
+      case 'settings':
+        handleOpenSettings();
+        break;
+        
+      default:
+        setShowSideMenu(false);
+    }
+  };
 
   const handleOpenSettings = () => {
     setShowSideMenu(false);
@@ -39,30 +167,25 @@ const Header = ({ searchText, setSearchText, onSearch, theme = 'white', onThemeC
   };
 
   const handleSearchFocus = () => {
-    // ⭐ BottomSheet만 닫고 키보드는 유지
     if (window.closeBottomSheetOnly) {
       window.closeBottomSheetOnly();
     }
   };
 
-  // ⭐ 검색 버튼 클릭 시 포커스 처리
   const handleSearchButtonPress = () => {
     if (searchText.trim()) {
-      // 검색어가 있으면 검색 실행
       handleSearchSubmit();
     } else {
-      // 검색어가 없으면 입력창에 포커스
       searchInputRef.current?.focus();
     }
   };
 
-  // ⭐ 검색창 컨테이너 클릭 시 포커스
   const handleSearchContainerPress = () => {
     searchInputRef.current?.focus();
   };
 
-  // ⭐ 전역 함수로 등록 (외부에서 blur 가능)
-  React.useEffect(() => {
+  // 전역 함수로 등록 (BottomSheet에서 검색창을 닫을 때 사용)
+  useEffect(() => {
     window.blurSearchInput = () => {
       searchInputRef.current?.blur();
     };
@@ -83,7 +206,7 @@ const Header = ({ searchText, setSearchText, onSearch, theme = 'white', onThemeC
           activeOpacity={0.9}
         >
           <TextInput
-            ref={searchInputRef}  // ⭐ ref 연결
+            ref={searchInputRef}
             style={[styles.searchInput, { color: primaryTextColor }]}
             placeholder="지역명 또는 대피소 검색"
             placeholderTextColor={secondaryTextColor}
@@ -116,8 +239,10 @@ const Header = ({ searchText, setSearchText, onSearch, theme = 'white', onThemeC
       <SideMenu
         visible={showSideMenu}
         onClose={() => setShowSideMenu(false)}
-        onOpenSettings={handleOpenSettings}
+        onMenuItemPress={handleMenuItemPress}
         theme={theme}
+        isLoggedIn={isLoggedIn}
+        userInfo={userInfo}
       />
 
       <SettingsModal
@@ -125,6 +250,22 @@ const Header = ({ searchText, setSearchText, onSearch, theme = 'white', onThemeC
         onClose={() => setShowSettingsModal(false)}
         currentTheme={theme}
         onThemeChange={handleThemeChange}
+      />
+
+      <LoginSignupModal
+        visible={showLoginModal}
+        initialMode={modalMode}
+        onClose={() => setShowLoginModal(false)}
+        onLoginSuccess={handleLoginSuccess}
+      />
+
+      <MyPageScreen
+        visible={showMyPage}
+        onClose={() => {
+          setShowMyPage(false);
+          if (!TEST_MODE) loadUserInfo();
+        }}
+        onLogout={handleLogout}
       />
     </>
   );
@@ -140,8 +281,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 8,
-    zIndex: 100,        // ⭐ 10 → 100으로 상향 (BottomNav보다 높게)
-    elevation: 100,     // ⭐ elevation도 추가
+    zIndex: 100,
+    elevation: 100,
     backgroundColor: 'transparent',
   },
   searchContainer: {
@@ -162,12 +303,12 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 16,
     fontWeight: '500',
-    padding: 0,  // ⭐ padding 제거로 터치 영역 최대화
+    padding: 0,
     margin: 0,
   },
   searchButton: {
     marginLeft: 8,
-    padding: 4,  // ⭐ 터치 영역 확대
+    padding: 4,
   },
   menuButton: {
     width: 44,

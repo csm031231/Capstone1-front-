@@ -1,88 +1,98 @@
-/ src/components/Message/MessageContainer.js
+// src/components/Message/MessageContainer.js
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
 import { useAppState } from '../../store/AppContext';
 import EmptyState from '../common/EmptyState';
+import emergencyMessageService from '../../services/emergencyMessageService';
 
 export default function MessageContainer() {
   const { currentLocation } = useAppState();
   const [messages, setMessages] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  // 목업 재난문자 데이터
-  const getMockMessages = () => [
-    {
-      id: 1,
-      title: '김해시 태풍 경보 발령',
-      content: '김해시에 태풍 경보가 발령되었습니다. 시민들은 외출을 자제하고 안전에 유의해 주시기 바랍니다.',
-      time: '2시간 전',
-      region: '김해시',
-      severity: 'high',
-      icon: '🌊'
-    },
-    {
-      id: 2,
-      title: '정전 안내',
-      content: '김해시 장유면 일대에 정전이 발생하였습니다. 복구까지 약 2시간 소요 예정입니다.',
-      time: '5시간 전',
-      region: '김해시 장유면',
-      severity: 'medium',
-      icon: '⚡'
-    },
-    {
-      id: 3,
-      title: '강풍 주의보',
-      content: '경남 일대에 강풍 주의보가 발령되었습니다. 시설물 점검 및 외출 시 주의하시기 바랍니다.',
-      time: '1일 전',
-      region: '경남 전체',
-      severity: 'low',
-      icon: '🌪️'
+  const getRegionName = () => {
+    if (currentLocation && currentLocation.favoriteRegion) {
+        return currentLocation.favoriteRegion;
     }
-  ];
+    return '김해시'; 
+  }
 
   useEffect(() => {
-    // 실제로는 API에서 데이터를 가져올 것
-    setMessages(getMockMessages());
-  }, []);
+    loadMessages();
+  }, [currentLocation]);
+
+  const loadMessages = async () => {
+    setLoading(true);
+    try {
+      const regionName = getRegionName();
+      const response = await emergencyMessageService.getEmergencyMessages(regionName);
+      
+      if (response.success && response.messages) {
+        setMessages(response.messages);
+      } else {
+         setMessages([]);
+      }
+    } catch (error) {
+      console.error('재난문자 로드 실패:', error);
+      setMessages([]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const getSeverityColor = (severity) => {
     switch (severity) {
-      case 'high': return '#f44336';
-      case 'medium': return '#ff9800';
-      case 'low': return '#2196f3';
+      case 'emergency': return '#f44336';
+      case 'warning': return '#ff9800';
+      case 'info': return '#2196f3';
       default: return '#666';
     }
   };
 
+  const getCategoryIcon = (category) => {
+    switch (category) {
+      case 'weather': return '🌦️';
+      case 'earthquake': return '🏗️';
+      case 'fire': return '🔥';
+      case 'flood': return '🌊';
+      default: return '🚨';
+    }
+  };
+  
   return (
     <View style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>🚨 재난문자</Text>
-        <Text style={styles.subtitle}>총 {messages.length}건의 재난문자</Text>
+        <Text style={styles.subtitle}>
+          {loading ? '문자를 불러오는 중...' : `총 ${messages.length}건의 재난문자`}
+        </Text>
         
-        {currentLocation && (
-          <View style={styles.locationInfo}>
-            <Text style={styles.locationText}>
-              📍 현재 위치: {currentLocation.latitude?.toFixed(4)}, {currentLocation.longitude?.toFixed(4)}
-            </Text>
-          </View>
-        )}
+        <View style={styles.locationInfo}>
+          <Text style={styles.locationText}>
+            📍 현재 위치: {currentLocation?.favoriteRegion || getRegionName()}
+          </Text>
+        </View>
       </View>
 
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-        {messages.length === 0 ? (
+        {loading ? (
+            <View style={styles.loadingContainer}>
+                <ActivityIndicator size="large" color="#4285f4" />
+            </View>
+        ) : messages.length === 0 ? (
           <EmptyState
             icon="alert-circle-outline"
             title="재난문자가 없습니다"
-            message="현재 발령된 재난문자가 없습니다"
+            message="현재 발령된 재난문자가 없거나 조회에 실패했습니다"
           />
         ) : (
           messages.map((message) => (
             <View key={message.id} style={styles.messageItem}>
               <View style={styles.messageHeader}>
-                <Text style={styles.messageIcon}>{message.icon}</Text>
+                <Text style={styles.messageIcon}>{getCategoryIcon(message.category)}</Text>
                 <View style={styles.messageTitleContent}>
                   <Text style={styles.messageTitle}>{message.title}</Text>
-                  <Text style={styles.messageRegion}>{message.region}</Text>
+                  <Text style={styles.messageRegion}>{message.location}</Text>
                 </View>
                 <View style={styles.messageTime}>
                   <Text style={styles.timeText}>{message.time}</Text>
@@ -193,4 +203,8 @@ const styles = StyleSheet.create({
     color: '#333',
     lineHeight: 20,
   },
+  loadingContainer: {
+    paddingVertical: 50,
+    alignItems: 'center',
+  }
 });
