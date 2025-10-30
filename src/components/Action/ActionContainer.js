@@ -4,11 +4,13 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'rea
 import EmptyState from '../common/EmptyState';
 import AIChatbotModal from '../common/AIChatbotModal'; 
 import COLORS from '../../constants/colors';
+import disasterActionService from '../../services/disasterActionService'; // ✅ 서비스 import 추가
 
 export default function ActionContainer() {
+  
   const [actions] = useState([
     {
-      id: 'earthquake',
+      id: '01011', // 지진 코드 (서비스/라우터 참고)
       title: '지진 대응',
       subtitle: '지진 발생시 행동요령',
       icon: '🏗️',
@@ -16,7 +18,7 @@ export default function ActionContainer() {
       description: '지진 발생시 안전한 대피 방법을 확인하세요'
     },
     {
-      id: 'fire',
+      id: '01014', // 화재 코드 (서비스/라우터 참고)
       title: '화재 대응',
       subtitle: '화재 발생시 대피요령',
       icon: '🔥',
@@ -24,15 +26,15 @@ export default function ActionContainer() {
       description: '화재 발생시 신속한 대피 방법을 확인하세요'
     },
     {
-      id: 'flood',
-      title: '수해 대응',
+      id: '01013', // 홍수 코드 (서비스 목업 참고)
+      title: '수해 대응 (홍수)',
       subtitle: '홍수/태풍 대비요령',
       icon: '🌊',
       color: COLORS.primary,
       description: '홍수나 태풍 발생시 대비 방법을 확인하세요'
     },
     {
-      id: 'blackout',
+      id: 'blackout', // 특수 항목: 정전은 별도의 로직이 필요하거나 상세 코드가 없는 경우가 많아 ID 유지
       title: '정전 대응',
       subtitle: '정전 발생시 행동요령',
       icon: '⚡',
@@ -40,7 +42,7 @@ export default function ActionContainer() {
       description: '정전 발생시 안전한 행동 방법을 확인하세요'
     },
     {
-      id: 'shelter',
+      id: 'shelter', // 특수 항목: 대피소 찾기는 지도/API 연동 필요하여 ID 유지
       title: '대피소 찾기',
       subtitle: '주변 대피소 위치',
       icon: '🏠',
@@ -48,7 +50,7 @@ export default function ActionContainer() {
       description: '현재 위치 기준 가까운 대피소를 찾아보세요'
     },
     {
-      id: 'emergency',
+      id: 'emergency', // 특수 항목: 긴급 신고는 ID 유지
       title: '긴급신고',
       subtitle: '119/112 신고',
       icon: '🚨',
@@ -60,11 +62,15 @@ export default function ActionContainer() {
   const [selectedAction, setSelectedAction] = useState(null);
   const [showAiChat, setShowAiChat] = useState(false);
 
-  const handleActionPress = (action) => {
+  // ✅ handleActionPress 함수를 async로 변경하고 서비스 호출 로직 추가
+  const handleActionPress = async (action) => {
     setSelectedAction(action.id);
     
-    switch (action.id) {
-      case 'emergency':
+    //console.log('--- Action Press Called:', action.id); // 디버깅용
+    
+    try {
+      if (action.id === 'emergency') {
+        // 긴급신고 로직
         Alert.alert(
           '긴급신고',
           '어떤 신고를 하시겠습니까?',
@@ -74,9 +80,34 @@ export default function ActionContainer() {
             { text: '경찰신고 (112)', onPress: () => Alert.alert('112 신고', '경찰신고가 접수되었습니다.') }
           ]
         );
-        break;
-      default:
+      } else if (action.id === 'shelter' || action.id === 'blackout') {
+        // 기타 특수 항목 (정전, 대피소)
         Alert.alert(action.title, `${action.title} 상세 정보를 표시합니다.`);
+      } else {
+        // ✅ 재난 유형에 따른 행동 요령 데이터를 불러옴 (Category Code 사용)
+        const response = await disasterActionService.getActionsByCategory(action.id, 1, 1);
+        
+        if (response.success && response.items && response.items.length > 0) {
+          const firstAction = response.items[0];
+          
+          let alertContent = firstAction.content;
+          if (firstAction.url) {
+             alertContent += `\n\n[더보기: ${firstAction.url}]`;
+          }
+          
+          Alert.alert(
+            firstAction.title || action.title, 
+            alertContent
+          );
+        } else {
+          // 데이터는 불러왔으나 해당 카테고리에 내용이 없을 때
+          Alert.alert(action.title, `현재 ${action.title}에 대한 상세 행동요령을 찾을 수 없습니다.`);
+        }
+      }
+    } catch (error) {
+        console.error('행동요령 로드 실패:', error);
+        // API 호출 자체가 실패했을 때 (서버 미작동 등)
+        Alert.alert('오류', '행동요령 데이터를 불러오는 데 실패했습니다.\n(서버 연결 상태를 확인하세요)');
     }
     
     setTimeout(() => {

@@ -2,42 +2,75 @@
 // 📁 src/components/BottomSheet/ActionContent.js
 // ============================================
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native'; // Alert import
 import AIChatbotModal from '../common/AIChatbotModal';
+import disasterActionService from '../../services/disasterActionService'; // 서비스 import
 
 const ActionContent = () => {
   const [showAiChat, setShowAiChat] = useState(false);
 
+  // ID를 category_code와 유사하게 변경
   const mockActions = [
     {
-      id: 1,
+      id: '01012', // 태풍 코드
       icon: '🌊',
       title: '태풍 대비 요령',
       subtitle: '사전준비 • 행동요령',
       color: '#9c27b0'
     },
     {
-      id: 2,
+      id: '01014', // 화재 코드
       icon: '🔥',
       title: '화재 발생시 대피',
       subtitle: '초기대응 • 대피방법',
       color: '#795548'
     },
     {
-      id: 3,
+      id: '01011', // 지진 코드
       icon: '⚡',
       title: '지진 발생시 행동',
       subtitle: '실내 • 실외 대응',
       color: '#607d8b'
     },
     {
-      id: 4,
+      id: 'blackout', // 특수 항목 ID
       icon: '🌪️',
       title: '강풍 주의사항',
       subtitle: '외출금지 • 안전수칙',
       color: '#ff9800'
     }
   ];
+  
+  // ✅ onPress 핸들러 추가
+  const handleActionItemPress = async (action) => {
+    if (action.id === 'blackout') {
+        Alert.alert(action.title, `${action.title} 상세 정보를 표시합니다.`);
+        return;
+    }
+
+    try {
+        const response = await disasterActionService.getActionsByCategory(action.id, 1, 1);
+        
+        if (response.success && response.items && response.items.length > 0) {
+          const firstAction = response.items[0];
+          
+          let alertContent = firstAction.content;
+          if (firstAction.url) {
+             alertContent += `\n\n[더보기: ${firstAction.url}]`;
+          }
+          
+          Alert.alert(
+            firstAction.title || action.title, 
+            alertContent
+          );
+        } else {
+          Alert.alert(action.title, `현재 ${action.title}에 대한 상세 행동요령을 찾을 수 없습니다.`);
+        }
+    } catch (error) {
+        console.error('행동요령 로드 실패:', error);
+        Alert.alert('오류', '행동요령 데이터를 불러오는 데 실패했습니다.');
+    }
+  };
 
   return (
     <>
@@ -55,7 +88,12 @@ const ActionContent = () => {
           
           <View style={styles.itemList}>
             {mockActions.map((item) => (
-              <TouchableOpacity key={item.id} style={styles.actionItem}>
+              // ✅ onPress 핸들러 연결
+              <TouchableOpacity 
+                key={item.id} 
+                style={styles.actionItem}
+                onPress={() => handleActionItemPress(item)} 
+              >
                 <View style={[styles.actionIcon, { backgroundColor: item.color }]}>
                   <Text style={styles.actionIconText}>{item.icon}</Text>
                 </View>
