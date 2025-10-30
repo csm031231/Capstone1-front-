@@ -8,6 +8,7 @@ import {
   Animated,
   PanResponder,
   Keyboard,
+  Platform,
 } from 'react-native';
 import { useAppState, useAppDispatch, actions } from '../../store/AppContext';
 import NewsContent from './NewsContent';
@@ -19,41 +20,39 @@ import COLORS from '../../constants/colors';
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 // 🎯 고정 높이값들
-const BOTTOM_NAV_HEIGHT = 60;  // 하단 네비게이션 바 높이
-const PEEK_HEIGHT = 138;        // 미리보기 높이
-const EXPANDED_HEIGHT = SCREEN_HEIGHT * 0.8; // 확장 높이
+const BOTTOM_NAV_HEIGHT = Platform.OS === 'ios' ? 70 : 60;
+const PEEK_HEIGHT = 138;
+const EXPANDED_HEIGHT = SCREEN_HEIGHT * 0.8;
 
 export default function BottomSheet() {
   const { selectedTab } = useAppState();
   const dispatch = useAppDispatch();
   
-  // 애니메이션 값 (0 = 닫힘, PEEK_HEIGHT = 미리보기, EXPANDED_HEIGHT = 확장)
   const animatedHeight = useRef(new Animated.Value(0)).current;
   const [isExpanded, setIsExpanded] = React.useState(false);
 
-  // 탭 선택/해제에 따른 애니메이션
   useEffect(() => {
     if (selectedTab) {
-      // 탭 선택됨 -> 미리보기로 열기
       openSheet(false);
     } else {
-      // 탭 해제됨 -> 닫기
       closeSheet();
     }
   }, [selectedTab]);
 
-  // 전역 함수 등록
   useEffect(() => {
     window.closeBottomSheet = () => {
       handleClose();
     };
+    window.closeBottomSheetOnly = () => {
+        collapseSheet();
+    };
 
     return () => {
       delete window.closeBottomSheet;
+      delete window.closeBottomSheetOnly;
     };
   }, []);
 
-  // 🟢 시트 열기
   const openSheet = (expanded = false) => {
     setIsExpanded(expanded);
     const toValue = expanded ? EXPANDED_HEIGHT : PEEK_HEIGHT;
@@ -66,7 +65,6 @@ export default function BottomSheet() {
     }).start();
   };
 
-  // 🔴 시트 닫기
   const closeSheet = () => {
     setIsExpanded(false);
     Animated.timing(animatedHeight, {
@@ -76,16 +74,17 @@ export default function BottomSheet() {
     }).start();
   };
 
-  // ❌ 완전히 닫기 (탭도 초기화)
   const handleClose = () => {
     Keyboard.dismiss();
     closeSheet();
     setTimeout(() => {
       dispatch(actions.setSelectedTab(null));
+      if (window.blurSearchInput) { 
+        window.blurSearchInput();
+      }
     }, 200);
   };
 
-  // ⬆️ 확장
   const expandSheet = () => {
     setIsExpanded(true);
     Animated.spring(animatedHeight, {
@@ -96,7 +95,6 @@ export default function BottomSheet() {
     }).start();
   };
 
-  // ⬇️ 축소
   const collapseSheet = () => {
     setIsExpanded(false);
     Animated.spring(animatedHeight, {
@@ -107,12 +105,10 @@ export default function BottomSheet() {
     }).start();
   };
 
-  // 🖐️ PanResponder (드래그 핸들러)
   const panResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
       onMoveShouldSetPanResponder: (evt, gestureState) => {
-        // 세로 방향 움직임이 가로보다 크면 응답
         return Math.abs(gestureState.dy) > Math.abs(gestureState.dx) && Math.abs(gestureState.dy) > 5;
       },
       
@@ -122,8 +118,6 @@ export default function BottomSheet() {
       },
       
       onPanResponderMove: (evt, gestureState) => {
-        // 아래로 드래그: dy > 0 (음수로 적용)
-        // 위로 드래그: dy < 0 (양수로 적용)
         animatedHeight.setValue(-gestureState.dy);
       },
       
@@ -133,31 +127,26 @@ export default function BottomSheet() {
         const { dy, vy } = gestureState;
         const currentHeight = animatedHeight._value;
         
-        // 🔽 빠르게 아래로 스와이프 또는 많이 내림 → 닫기
         if ((vy > 0.5 && dy > 0) || dy > 100) {
           handleClose();
           return;
         }
         
-        // 🔼 빠르게 위로 스와이프 → 확장
         if ((vy < -0.5 && dy < 0) || dy < -100) {
           expandSheet();
           return;
         }
         
-        // 현재 높이에 따라 결정
         if (isExpanded) {
-          // 확장 상태에서 중간 이하로 내려가면 축소
-          if (currentHeight < EXPANDED_HEIGHT * 0.7) {
+          if (currentHeight < EXPANDED_HEIGHT * 0.6) {
             collapseSheet();
           } else {
             expandSheet();
           }
         } else {
-          // 미리보기 상태에서 일정 높이 이상 올라가면 확장
           if (currentHeight > PEEK_HEIGHT * 1.3) {
             expandSheet();
-          } else if (currentHeight < PEEK_HEIGHT * 0.5) {
+          } else if (currentHeight < PEEK_HEIGHT * 0.4) {
             handleClose();
           } else {
             collapseSheet();
@@ -171,7 +160,6 @@ export default function BottomSheet() {
     })
   ).current;
 
-  // 선택된 탭의 콘텐츠 렌더링
   const renderTabContent = () => {
     if (!selectedTab) return null;
     
@@ -190,12 +178,10 @@ export default function BottomSheet() {
     }
   };
 
-  // 시트가 열려있지 않으면 아무것도 렌더링하지 않음
   if (!selectedTab) {
     return null;
   }
 
-  // backdrop 투명도 계산
   const backdropOpacity = animatedHeight.interpolate({
     inputRange: [0, PEEK_HEIGHT],
     outputRange: [0, 0.4],
@@ -204,7 +190,6 @@ export default function BottomSheet() {
 
   return (
     <>
-      {/* 🌑 Backdrop */}
       <Animated.View
         style={[
           styles.backdrop,
@@ -221,7 +206,6 @@ export default function BottomSheet() {
         />
       </Animated.View>
 
-      {/* 📄 BottomSheet */}
       <Animated.View
         style={[
           styles.bottomSheet,
@@ -234,12 +218,10 @@ export default function BottomSheet() {
           },
         ]}
       >
-        {/* 🎯 Handle Area */}
         <View {...panResponder.panHandlers} style={styles.handleArea}>
           <View style={styles.handleBar} />
         </View>
 
-        {/* 📦 Content */}
         <View style={styles.contentWrapper}>
           {renderTabContent()}
         </View>

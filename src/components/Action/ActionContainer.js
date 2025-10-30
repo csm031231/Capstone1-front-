@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import EmptyState from '../common/EmptyState';
+import AIChatbotModal from '../common/AIChatbotModal'; 
 import COLORS from '../../constants/colors';
 
 export default function ActionContainer() {
@@ -57,6 +58,7 @@ export default function ActionContainer() {
   ]);
 
   const [selectedAction, setSelectedAction] = useState(null);
+  const [showAiChat, setShowAiChat] = useState(false);
 
   const handleActionPress = (action) => {
     setSelectedAction(action.id);
@@ -83,54 +85,65 @@ export default function ActionContainer() {
   };
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>🤖 재난 행동요령</Text>
-        <Text style={styles.subtitle}>긴급상황별 대응 방법을 빠르게 확인하세요</Text>
+    <>
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <Text style={styles.title}>🤖 재난 행동요령</Text>
+          <Text style={styles.subtitle}>긴급상황별 대응 방법을 빠르게 확인하세요</Text>
+          
+          <TouchableOpacity 
+            style={styles.aiChatButton}
+            onPress={() => setShowAiChat(true)}
+          >
+            <Text style={styles.aiChatButtonText}>AI 도우미와 채팅하기</Text>
+          </TouchableOpacity>
+        </View>
         
-        <TouchableOpacity style={styles.aiChatButton}>
-          <Text style={styles.aiChatButtonText}>AI 도우미와 채팅하기</Text>
-        </TouchableOpacity>
+        <ScrollView 
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          {actions.length === 0 ? (
+            <EmptyState
+              icon="book-outline"
+              title="행동요령이 없습니다"
+              message="행동요령 데이터를 불러올 수 없습니다"
+            />
+          ) : (
+            actions.map((action) => (
+              <TouchableOpacity
+                key={action.id}
+                style={[
+                  styles.actionItem,
+                  { backgroundColor: action.color },
+                  selectedAction === action.id && styles.selectedAction
+                ]}
+                onPress={() => handleActionPress(action)}
+                activeOpacity={0.8}
+              >
+                <View style={styles.actionIconContainer}>
+                  <Text style={styles.actionIcon}>{action.icon}</Text>
+                </View>
+                <View style={styles.actionContent}>
+                  <Text style={styles.actionTitle}>{action.title}</Text>
+                  <Text style={styles.actionSubtitle}>{action.subtitle}</Text>
+                </View>
+                <View style={styles.actionArrow}>
+                  <Text style={styles.arrowText}>›</Text>
+                </View>
+              </TouchableOpacity>
+            ))
+          )}
+        </ScrollView>
       </View>
-      
-      <ScrollView 
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
-        {actions.length === 0 ? (
-          <EmptyState
-            icon="book-outline"
-            title="행동요령이 없습니다"
-            message="행동요령 데이터를 불러올 수 없습니다"
-          />
-        ) : (
-          actions.map((action) => (
-            <TouchableOpacity
-              key={action.id}
-              style={[
-                styles.actionItem,
-                { backgroundColor: action.color },
-                selectedAction === action.id && styles.selectedAction
-              ]}
-              onPress={() => handleActionPress(action)}
-              activeOpacity={0.8}
-            >
-              <View style={styles.actionIconContainer}>
-                <Text style={styles.actionIcon}>{action.icon}</Text>
-              </View>
-              <View style={styles.actionContent}>
-                <Text style={styles.actionTitle}>{action.title}</Text>
-                <Text style={styles.actionSubtitle}>{action.subtitle}</Text>
-              </View>
-              <View style={styles.actionArrow}>
-                <Text style={styles.arrowText}>›</Text>
-              </View>
-            </TouchableOpacity>
-          ))
-        )}
-      </ScrollView>
-    </View>
+
+      <AIChatbotModal
+        visible={showAiChat}
+        onClose={() => setShowAiChat(false)}
+        initialMessage="재난 행동요령에 대해 질문하고 싶어요"
+      />
+    </>
   );
 }
 
