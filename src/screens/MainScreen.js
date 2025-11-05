@@ -1,6 +1,6 @@
 // src/screens/MainScreen.js
-import React, { useEffect, useState } from 'react';
-import { View, Keyboard, StyleSheet, Alert } from 'react-native';
+import React, { useEffect, useState, useCallback } from 'react';
+import { View, Keyboard, StyleSheet } from 'react-native';
 import { useAppState, useAppDispatch, actions } from '../store/AppContext';
 import { apiService } from '../services/ApiService';
 import Header from '../components/Header/Header';
@@ -17,9 +17,10 @@ export default function MainScreen() {
   const dispatch = useAppDispatch();
   const [theme, setTheme] = useState('white');
   const [searchText, setSearchText] = useState('');
+  const [relatedSearches, setRelatedSearches] = useState([]);
+  const [showRelatedSearches, setShowRelatedSearches] = useState(false);
   const mapRef = React.useRef(null);
-  
-  // ⭐ 하드코딩된 지역 좌표 데이터(REGION_COORDINATES)를 제거했습니다.
+  const searchTimeoutRef = React.useRef(null);
   
   useEffect(() => {
     if (currentViewport && selectedTab === '대피소') {
@@ -80,71 +81,189 @@ export default function MainScreen() {
     dispatch(actions.clearError());
   };
 
-  // ⭐ 검색 핸들러 (API 중심으로 로직 간소화)
-  const handleSearch = async () => {
-    Keyboard.dismiss();
-    
-    const query = searchText.trim();
-    if (!query) {
-      Alert.alert('알림', '검색어를 입력해주세요.');
+  // ⭐ 지도 이동 및 확대 - 여러 방법 동시 시도
+  const moveAndZoomMap = (latitude, longitude, zoomLevel = 15) => {
+    console.log('🗺️ moveAndZoomMap 호출:', { latitude, longitude, zoomLevel });
+
+    if (!mapRef.current) {
+      console.error('❌ mapRef가 없습니다');
       return;
     }
 
-    console.log('🔍 검색 시작:', query);
+    const attemptMove = (retryCount = 0) => {
+      // ✅ 1순위: moveAndZoom과 isMapReady가 모두 준비되었는지 확인
+      if (mapRef.current.moveAndZoom && mapRef.current.isMapReady && mapRef.current.isMapReady()) {
+        console.log(`✅ moveAndZoom 함수 실행 (시도: ${retryCount + 1})`);
+        mapRef.current.moveAndZoom(latitude, longitude, zoomLevel);
+      } 
+      // ❌ 10번 이상(5초) 시도해도 안되면 실패 처리
+      else if (retryCount > 10) {
+        console.error('❌ 지도 준비 시간 초과. moveAndZoom 실행 실패.');
+        // 🚨 최후의 수단: updateLocation이라도 호출 (마커만이라도 이동)
+        if (mapRef.current.updateLocation) {
+          console.warn('⚠️ 최후의 수단: updateLocation 호출');
+          mapRef.current.updateLocation({ latitude, longitude, zoom: zoomLevel });
+        }
+      } 
+      // ⏳ 2순위: 아직 준비가 안됐으면 0.5초 후 재시도
+      else {
+        console.warn(`⚠️ 지도가 아직 준비되지 않았습니다. 500ms 후 재시도합니다... (시도: ${retryCount + 1})`);
+        setTimeout(() => attemptMove(retryCount + 1), 500); // 0.5초 후 재귀 호출
+      }
+    };
 
-    // 1. 현재 지도에 로드된 대피소명이 일치하는지 먼저 확인 (네트워크 요청 최소화)
+    attemptMove(); // 첫 번째 시도 시작
+  };
+
+  // ⭐ 검색어 입력 시 자동완성 검색 (디바운스 적용)
+  const handleSearchTextChange = useCallback((text) => {
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+    }
+
+    if (!text.trim()) {
+      setShowRelatedSearches(false);
+      setRelatedSearches([]);
+      return;
+    }
+
+    if (text.trim().length < 2) {
+      setShowRelatedSearches(false);
+      setRelatedSearches([]);
+      return;
+    }
+
+    searchTimeoutRef.current = setTimeout(() => {
+      fetchAutocompleteSuggestions(text.trim());
+    }, 500);
+  }, []);
+
+  const fetchAutocompleteSuggestions = async (query) => {
+    try {
+      console.log('🔍 자동완성 검색:', query);
+      const response = await fetch(`${API_BASE_URL}/map/coordinates?address=${encodeURIComponent(query)}`);
+      const data = await response.json();
+
+      if (data.multiple_results && data.results && data.results.length > 1) {
+        console.log('📍 자동완성 결과:', data.results.length);
+        const suggestions = data.results.map(result => result.title || result.address);
+        setRelatedSearches(suggestions);
+        setShowRelatedSearches(true);
+      } else {
+        setShowRelatedSearches(false);
+        setRelatedSearches([]);
+      }
+    } catch (error) {
+      console.error('자동완성 검색 오류:', error);
+      setShowRelatedSearches(false);
+      setRelatedSearches([]);
+    }
+  };
+
+  const handleSearch = async (customQuery = null) => {
+    Keyboard.dismiss();
+    
+    const query = (customQuery || searchText).trim();
+    if (!query) {
+      console.log('⚠️ 검색어가 비어있습니다');
+      return;
+    }
+
+    console.log('🔍 검색 실행:', query);
+    setShowRelatedSearches(false);
+
+    // 1. 대피소 검색
     const matchedShelter = shelters?.find(shelter => 
       shelter.REARE_NM?.includes(query) || 
       shelter.RONA_DADDR?.includes(query)
     );
 
     if (matchedShelter) {
-      if (mapRef.current?.updateLocation) {
-        mapRef.current.updateLocation({
-          latitude: matchedShelter.latitude,
-          longitude: matchedShelter.longitude
-        });
-        dispatch(actions.setSelectedTab('대피소'));
-        Alert.alert('검색 완료', `${matchedShelter.REARE_NM}을(를) 찾았습니다.`);
-        setSearchText('');
-        return;
-      }
+      console.log('✅ 대피소 매칭:', matchedShelter.REARE_NM);
+      console.log('📍 좌표:', matchedShelter.latitude, matchedShelter.longitude);
+      
+      moveAndZoomMap(matchedShelter.latitude, matchedShelter.longitude);
+      dispatch(actions.setSelectedTab('대피소'));
+      setSearchText('');
+      setRelatedSearches([]);
+      return;
     }
 
-    // 2. 일치하는 대피소가 없으면, 백엔드 API에 모든 검색을 위임
+    // 2. API 검색
     try {
       const response = await fetch(`${API_BASE_URL}/map/coordinates?address=${encodeURIComponent(query)}`);
       const data = await response.json();
+      
+      console.log('📡 API 응답:', data);
     
-      // 💡 성공 조건을 유연하게 처리
-      const isSuccess = data.success === true || (response.ok && data.latitude && data.longitude);
+      // 여러 결과
+      if (data.multiple_results && data.results && data.results.length > 1) {
+        console.log('📍 여러 결과:', data.results.length);
+        
+        if (data.recommended) {
+          console.log('✅ 추천 위치:', data.recommended.title);
+          // ✅ FIX: API가 lat, lot 필드를 반환
+          const lat = parseFloat(data.recommended.lat || data.recommended.latitude);
+          const lng = parseFloat(data.recommended.lot || data.recommended.lng || data.recommended.longitude);
+          console.log('📍 좌표:', lat, lng);
+          
+          if (!isNaN(lat) && !isNaN(lng)) {
+            moveAndZoomMap(lat, lng);
+            setSearchText('');
+          } else {
+            console.error('❌ 유효하지 않은 좌표:', data.recommended);
+          }
+        }
+        return;
+      }
+    
+      // 단일 결과
+      // ✅ FIX: API가 lat, lot 필드를 반환
+      const lat = parseFloat(data.lat || data.latitude);
+      const lng = parseFloat(data.lot || data.lng || data.longitude);
+      const isSuccess = data.success === true || (response.ok && !isNaN(lat) && !isNaN(lng));
     
       if (isSuccess) {
-        console.log('✅ API 검색 성공:', data.address || query);
-        if (mapRef.current?.updateLocation) {
-          mapRef.current.updateLocation({
-            latitude: data.latitude,
-            longitude: data.longitude,
-          });
-          Alert.alert('검색 완료', `[${data.address || query}] 위치로 이동합니다.`);
-          setSearchText('');
-        }
+        console.log('✅ 검색 성공');
+        console.log('📍 좌표:', lat, lng);
+        
+        setRelatedSearches([]);
+        moveAndZoomMap(lat, lng);
+        setSearchText('');
       } else {
-        // 💡 백엔드가 success 없이 detail만 줄 때 대비
         const errorMessage = data.detail || data.error || '검색 결과가 없습니다.';
-        console.warn('검색 실패:', errorMessage);
-        Alert.alert('검색 실패', `"${query}"에 대한 결과를 찾을 수 없습니다.\n\n${errorMessage}`);
+        console.warn('❌ 검색 실패:', errorMessage);
+        console.warn('📊 받은 데이터:', data);
+        setRelatedSearches([]);
       }
     
     } catch (error) {
-      console.error('API 요청 오류:', error);
-      Alert.alert('오류', '서버와 통신 중 문제가 발생했습니다.');
+      console.error('❌ API 오류:', error);
+      setRelatedSearches([]);
     }
+  };
+
+  const handleRelatedSearchClick = (searchQuery) => {
+    console.log('🔍 관련 검색어 클릭:', searchQuery);
+    setSearchText(searchQuery);
+    setShowRelatedSearches(false);
+    handleSearch(searchQuery);
   };
 
   const handleKeyboardDismiss = () => {
     Keyboard.dismiss();
+    if (showRelatedSearches) {
+      setShowRelatedSearches(false);
+    }
   };
+
+  useEffect(() => {
+    return () => {
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+      }
+    };
+  }, []);
 
   return (
     <View style={styles.container}>
@@ -166,6 +285,10 @@ export default function MainScreen() {
           searchText={searchText}
           setSearchText={setSearchText}
           onSearch={handleSearch}
+          relatedSearches={relatedSearches}
+          onRelatedSearchClick={handleRelatedSearchClick}
+          showRelatedSearches={showRelatedSearches}
+          onSearchTextChange={handleSearchTextChange}
         />
       </View>
 

@@ -20,7 +20,7 @@ export default function ShelterList({
     >
       {shelters.map((shelter) => (
         <ShelterItem 
-          key={shelter.id} 
+          key={shelter.MNG_SN} 
           shelter={shelter}
           currentLocation={currentLocation}
         />

@@ -1,17 +1,27 @@
 // ============================================
-// 📁 src/components/Header/Header.js (수정된 버전)
+// 📝 src/components/Header/Header.js (자동완성 검색어 기능)
 // ============================================
-import React, { useState, useRef } from 'react';
-import { View, StyleSheet, TextInput, TouchableOpacity, Keyboard } from 'react-native';
+import React, { useState, useRef, useEffect } from 'react';
+import { View, StyleSheet, TextInput, TouchableOpacity, Keyboard, Text, FlatList } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import COLORS from '../../constants/colors';
 import SideMenu from './SideMenu';
 import SettingsModal from './SettingsModal';
 
-const Header = ({ searchText, setSearchText, onSearch, theme = 'white', onThemeChange }) => {
+const Header = ({ 
+  searchText, 
+  setSearchText, 
+  onSearch, 
+  theme = 'white', 
+  onThemeChange,
+  relatedSearches = [],  // ⭐ 관련 검색어 목록
+  onRelatedSearchClick,  // ⭐ 관련 검색어 클릭 핸들러
+  showRelatedSearches = false,  // ⭐ 관련 검색어 표시 여부
+  onSearchTextChange  // ⭐ 검색어 입력 시 호출되는 함수
+}) => {
   const [showSideMenu, setShowSideMenu] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
-  const searchInputRef = useRef(null);  // ⭐ ref 추가
+  const searchInputRef = useRef(null);
 
   const isDarkTheme = theme === 'black';
 
@@ -39,29 +49,32 @@ const Header = ({ searchText, setSearchText, onSearch, theme = 'white', onThemeC
   };
 
   const handleSearchFocus = () => {
-    // ⭐ BottomSheet만 닫고 키보드는 유지
     if (window.closeBottomSheetOnly) {
       window.closeBottomSheetOnly();
     }
   };
 
-  // ⭐ 검색 버튼 클릭 시 포커스 처리
+  // ⭐ 검색어 입력 시 자동완성 트리거
+  const handleTextChange = (text) => {
+    setSearchText(text);
+    // 검색어가 변경될 때마다 자동완성 검색
+    if (onSearchTextChange) {
+      onSearchTextChange(text);
+    }
+  };
+
   const handleSearchButtonPress = () => {
     if (searchText.trim()) {
-      // 검색어가 있으면 검색 실행
       handleSearchSubmit();
     } else {
-      // 검색어가 없으면 입력창에 포커스
       searchInputRef.current?.focus();
     }
   };
 
-  // ⭐ 검색창 컨테이너 클릭 시 포커스
   const handleSearchContainerPress = () => {
     searchInputRef.current?.focus();
   };
 
-  // ⭐ 전역 함수로 등록 (외부에서 blur 가능)
   React.useEffect(() => {
     window.blurSearchInput = () => {
       searchInputRef.current?.blur();
@@ -70,6 +83,31 @@ const Header = ({ searchText, setSearchText, onSearch, theme = 'white', onThemeC
       delete window.blurSearchInput;
     };
   }, []);
+
+  // ⭐ 관련 검색어 항목 렌더링
+  const renderRelatedSearchItem = ({ item }) => (
+    <TouchableOpacity
+      style={[
+        styles.relatedSearchItem,
+        { backgroundColor: searchBg }
+      ]}
+      onPress={() => onRelatedSearchClick && onRelatedSearchClick(item)}
+      activeOpacity={0.7}
+    >
+      <Ionicons 
+        name="search" 
+        size={18} 
+        color={secondaryTextColor} 
+        style={styles.searchIcon}
+      />
+      <Text 
+        style={[styles.relatedSearchText, { color: primaryTextColor }]}
+        numberOfLines={1}
+      >
+        {item}
+      </Text>
+    </TouchableOpacity>
+  );
 
   return (
     <>
@@ -83,12 +121,12 @@ const Header = ({ searchText, setSearchText, onSearch, theme = 'white', onThemeC
           activeOpacity={0.9}
         >
           <TextInput
-            ref={searchInputRef}  // ⭐ ref 연결
+            ref={searchInputRef}
             style={[styles.searchInput, { color: primaryTextColor }]}
             placeholder="지역명 또는 대피소 검색"
             placeholderTextColor={secondaryTextColor}
             value={searchText}
-            onChangeText={setSearchText}
+            onChangeText={handleTextChange}  // ⭐ 변경: 자동완성 트리거
             onSubmitEditing={handleSearchSubmit}
             onFocus={handleSearchFocus}
             returnKeyType="search"
@@ -112,6 +150,28 @@ const Header = ({ searchText, setSearchText, onSearch, theme = 'white', onThemeC
           <Ionicons name="menu" size={28} color={menuButtonIconColor} />
         </TouchableOpacity>
       </View>
+
+      {/* ⭐ 관련 검색어 리스트 (자동완성 스타일) */}
+      {showRelatedSearches && relatedSearches && relatedSearches.length > 0 && (
+        <View style={[
+          styles.relatedSearchesContainer,
+          { backgroundColor: searchBg }
+        ]}>
+          <FlatList
+            data={relatedSearches}
+            renderItem={renderRelatedSearchItem}
+            keyExtractor={(item, index) => `related-${index}`}
+            scrollEnabled={true}
+            maxToRenderPerBatch={10}
+            style={[
+              styles.relatedSearchesList,
+              { 
+                borderColor: isDarkTheme ? COLORS.primaryDark : COLORS.primary,
+              }
+            ]}
+          />
+        </View>
+      )}
 
       <SideMenu
         visible={showSideMenu}
@@ -140,8 +200,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 8,
-    zIndex: 100,        // ⭐ 10 → 100으로 상향 (BottomNav보다 높게)
-    elevation: 100,     // ⭐ elevation도 추가
+    zIndex: 100,
+    elevation: 100,
     backgroundColor: 'transparent',
   },
   searchContainer: {
@@ -162,12 +222,12 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 16,
     fontWeight: '500',
-    padding: 0,  // ⭐ padding 제거로 터치 영역 최대화
+    padding: 0,
     margin: 0,
   },
   searchButton: {
     marginLeft: 8,
-    padding: 4,  // ⭐ 터치 영역 확대
+    padding: 4,
   },
   menuButton: {
     width: 44,
@@ -181,6 +241,42 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,
     shadowRadius: 6,
+  },
+  // ⭐ 관련 검색어 컨테이너 (자동완성 스타일)
+  relatedSearchesContainer: {
+    position: 'absolute',
+    top: 76, // header 바로 아래
+    left: 16,
+    right: 72, // 메뉴 버튼 공간 제외
+    maxHeight: 300, // ⭐ 최대 높이 제한
+    zIndex: 99,
+    borderRadius: 12,
+    elevation: 8,
+    shadowColor: COLORS.shadow,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+  },
+  relatedSearchesList: {
+    borderRadius: 12,
+    borderWidth: 1,
+    overflow: 'hidden',
+  },
+  relatedSearchItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderBottomWidth: 0.5,
+    borderBottomColor: 'rgba(0,0,0,0.1)',
+  },
+  searchIcon: {
+    marginRight: 12,
+  },
+  relatedSearchText: {
+    flex: 1,
+    fontSize: 15,
+    fontWeight: '400',
   },
 });
 
