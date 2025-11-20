@@ -1,8 +1,10 @@
-// src/screens/MainScreen.js
+// src/screens/MainScreen.js - FCM 통합 완전판
+
 import React, { useEffect, useState } from 'react';
 import { View, Keyboard, StyleSheet, Alert } from 'react-native';
 import { useAppState, useAppDispatch, actions } from '../store/AppContext';
-import { apiService } from '../services/apiConfig';
+import { setupFCM } from '../utils/fcmManager';
+import { apiService } from '../services/ApiService';
 import userService from '../services/userService';
 import emergencyMessageService from '../services/emergencyMessageService';
 import disasterActionService from '../services/disasterActionService';
@@ -12,84 +14,45 @@ import MapContainer from '../components/Map/MapContainer';
 import BottomSheet from '../components/BottomSheet/BottomSheet';
 import BottomNavigation from '../components/Navigation/BottomNavigation';
 import ErrorToast from '../components/common/ErrorToast';
-import LoginSignupModal from '../components/Header/LoginSignupModal';
-import MyPageScreen from '../components/Header/UserProfile';
 
 export default function MainScreen() {
-  const { currentLocation, currentViewport, selectedTab, error, shelters, isLoggedIn: contextIsLoggedIn, userInfo: contextUserInfo  } = useAppState();
+  const { currentLocation, currentViewport, selectedTab, error, shelters } = useAppState();
   const dispatch = useAppDispatch();
   const [theme, setTheme] = useState('white');
   const [searchText, setSearchText] = useState('');
-  const [isLoggedIn, setIsLoggedIn] = useState(contextIsLoggedIn || false);
-  const [userInfo, setUserInfo] = useState(contextUserInfo || null);
-  const [showLoginModal, setShowLoginModal] = useState(false);
-  const [showMyPage, setShowMyPage] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+
   const mapRef = React.useRef(null);
-  
-  // 지역별 좌표 데이터
-  const REGION_COORDINATES = {
-    '서울': { latitude: 37.5665, longitude: 126.9780 },
-    '부산': { latitude: 35.1796, longitude: 129.0756 },
-    '대구': { latitude: 35.8714, longitude: 128.6014 },
-    '인천': { latitude: 37.4563, longitude: 126.7052 },
-    '광주': { latitude: 35.1595, longitude: 126.8526 },
-    '대전': { latitude: 36.3504, longitude: 127.3845 },
-    '울산': { latitude: 35.5384, longitude: 129.3114 },
-    '세종': { latitude: 36.4800, longitude: 127.2890 },
-    '김해': { latitude: 35.2286, longitude: 128.8892 },
-    '창원': { latitude: 35.2281, longitude: 128.6811 },
-    '진주': { latitude: 35.1800, longitude: 128.1076 },
-    '통영': { latitude: 34.8544, longitude: 128.4331 },
-    '사천': { latitude: 35.0036, longitude: 128.0642 },
-    '밀양': { latitude: 35.5040, longitude: 128.7469 },
-    '거제': { latitude: 34.8808, longitude: 128.6211 },
-    '양산': { latitude: 35.3350, longitude: 129.0372 },
-    '수원': { latitude: 37.2636, longitude: 127.0286 },
-    '성남': { latitude: 37.4201, longitude: 127.1262 },
-    '고양': { latitude: 37.6584, longitude: 126.8320 },
-    '용인': { latitude: 37.2410, longitude: 127.1776 },
-    '춘천': { latitude: 37.8813, longitude: 127.7300 },
-    '강릉': { latitude: 37.7519, longitude: 128.8761 },
-    '청주': { latitude: 36.6424, longitude: 127.4890 },
-    '천안': { latitude: 36.8151, longitude: 127.1139 },
-    '전주': { latitude: 35.8242, longitude: 127.1479 },
-    '목포': { latitude: 34.8118, longitude: 126.3922 },
-    '여수': { latitude: 34.7604, longitude: 127.6622 },
-    '제주': { latitude: 33.4996, longitude: 126.5312 },
-  };
-  
-  // 초기 로그인 상태 체크
+
+  // ✅ 1. 초기화: 로그인 상태 확인 및 FCM 셋업
   useEffect(() => {
     checkLoginStatus();
   }, []);
-  
+
   const checkLoginStatus = async () => {
     try {
       const isValid = await userService.checkToken();
       setIsLoggedIn(isValid);
-      
+
       if (isValid) {
-        const info = await userService.getUserInfo();
-        setUserInfo(info);
-        
-        // Context에도 저장
-        dispatch(actions.setUserInfo(info));
+        console.log('✅ 로그인 확인됨');
+        // ✅ 로그인 후 FCM 셋업
+        await setupFCM();
       }
     } catch (error) {
-      console.error('로그인 상태 체크 실패:', error);
+      console.error('로그인 확인 실패:', error);
       setIsLoggedIn(false);
-      setUserInfo(null);
     }
   };
 
-  // viewport 변경시 대피소 데이터 자동 로드
+  // ✅ 2. Viewport 변경 시 대피소 데이터 로드
   useEffect(() => {
     if (currentViewport && selectedTab === '대피소') {
       loadShelters(currentViewport);
     }
   }, [currentViewport, selectedTab]);
-  
-  // 탭 변경시 데이터 로드
+
+  // ✅ 3. 탭 변경 시 각 데이터 로드
   useEffect(() => {
     switch (selectedTab) {
       case '재난문자':
@@ -105,14 +68,14 @@ export default function MainScreen() {
         break;
     }
   }, [selectedTab]);
-  
+
   // 재난문자 로드
   const loadMessages = async () => {
     try {
       dispatch(actions.setLoading('messages', true));
-      const region = '김해시'; // 또는 현재 위치 기반
+      const region = '김해시';
       const response = await emergencyMessageService.getEmergencyMessages(region);
-      
+
       if (response.success) {
         dispatch(actions.setMessages(response.messages));
       }
@@ -124,61 +87,7 @@ export default function MainScreen() {
     }
   };
 
-  // 뉴스는 컴포넌트 마운트 시 한 번만 로드
-  useEffect(() => {
-    loadNews();
-  }, []);
-  
-  // 재난행동요령 로드
-  const loadActions = async () => {
-    try {
-      dispatch(actions.setLoading('actions', true));
-      const response = await disasterActionService.getAllActions(1, 10);
-      
-      if (response.success) {
-        dispatch(actions.setActions(response.items));
-      }
-    } catch (error) {
-      console.error('재난행동요령 로드 실패:', error);
-      dispatch(actions.setError('재난행동요령을 불러올 수 없습니다'));
-    } finally {
-      dispatch(actions.setLoading('actions', false));
-    }
-  };
-
-  // 테마 변경 핸들러
-  const handleThemeChange = (newTheme) => {
-    setTheme(newTheme);
-    if (mapRef.current && mapRef.current.applyTheme) {
-      mapRef.current.applyTheme(newTheme);
-    }
-  };
-  
-  // 대피소 데이터 로드
-  const loadShelters = async (viewport) => {
-    try {
-      dispatch(actions.setLoading('shelters', true));
-      
-      const bounds = {
-        startLat: viewport.startLat,
-        endLat: viewport.endLat,
-        startLot: viewport.startLot,
-        endLot: viewport.endLot
-      };
-      
-      const data = await apiService.getShelters(bounds, currentLocation);
-      dispatch(actions.setShelters(data));
-      
-    } catch (error) {
-      console.error('대피소 로드 실패:', error);
-      dispatch(actions.setError('대피소 정보를 불러올 수 없습니다'));
-      dispatch(actions.setShelters([]));
-    } finally {
-      dispatch(actions.setLoading('shelters', false));
-    }
-  };
-  
-  // 뉴스 데이터 로드
+  // 뉴스 로드 (한 번만 로드)
   const loadNews = async () => {
     try {
       dispatch(actions.setLoading('news', true));
@@ -192,10 +101,101 @@ export default function MainScreen() {
       dispatch(actions.setLoading('news', false));
     }
   };
-  
-  // 맵 뷰포트 변경 핸들러
+
+  // 재난행동요령 로드
+  const loadActions = async () => {
+    try {
+      dispatch(actions.setLoading('actions', true));
+      const response = await disasterActionService.getAllActions(1, 10);
+
+      if (response.success) {
+        dispatch(actions.setActions(response.items));
+      }
+    } catch (error) {
+      console.error('행동요령 로드 실패:', error);
+      dispatch(actions.setError('행동요령을 불러올 수 없습니다'));
+    } finally {
+      dispatch(actions.setLoading('actions', false));
+    }
+  };
+
+  // 대피소 로드
+  const loadShelters = async (viewport) => {
+    try {
+      dispatch(actions.setLoading('shelters', true));
+
+      const bounds = {
+        startLat: viewport.startLat,
+        endLat: viewport.endLat,
+        startLot: viewport.startLot,
+        endLot: viewport.endLot
+      };
+
+      const data = await apiService.getShelters(bounds, currentLocation);
+      dispatch(actions.setShelters(data));
+    } catch (error) {
+      console.error('대피소 로드 실패:', error);
+      dispatch(actions.setError('대피소 정보를 불러올 수 없습니다'));
+      dispatch(actions.setShelters([]));
+    } finally {
+      dispatch(actions.setLoading('shelters', false));
+    }
+  };
+
+  // 테마 변경
+  const handleThemeChange = (newTheme) => {
+    setTheme(newTheme);
+    if (mapRef.current && mapRef.current.applyTheme) {
+      mapRef.current.applyTheme(newTheme);
+    }
+  };
+
+  // Viewport 변경
   const handleViewportChange = (viewport) => {
     dispatch(actions.setViewport(viewport));
+  };
+
+  // 검색
+  const handleSearch = () => {
+    Keyboard.dismiss();
+
+    if (!searchText.trim()) {
+      Alert.alert('알림', '검색어를 입력해주세요.');
+      return;
+    }
+
+    const query = searchText.trim();
+    console.log('🔍 검색:', query);
+
+    // 지역명 검색
+    const regions = {
+      '서울': { latitude: 37.5665, longitude: 126.9780 },
+      '부산': { latitude: 35.1796, longitude: 129.0756 },
+      '대구': { latitude: 35.8714, longitude: 128.6014 },
+      '인천': { latitude: 37.4563, longitude: 126.7052 },
+      '광주': { latitude: 35.1595, longitude: 126.8526 },
+      '대전': { latitude: 36.3504, longitude: 127.3845 },
+      '울산': { latitude: 35.5384, longitude: 129.3114 },
+      '세종': { latitude: 36.4800, longitude: 127.2890 },
+      '김해': { latitude: 35.2286, longitude: 128.8892 },
+      '창원': { latitude: 35.2281, longitude: 128.6811 },
+      '진주': { latitude: 35.1800, longitude: 128.1076 },
+    };
+
+    for (const [region, coords] of Object.entries(regions)) {
+      if (query.includes(region) || region.includes(query)) {
+        console.log(`✅ 지역 찾음: ${region}`);
+
+        if (mapRef.current && mapRef.current.updateLocation) {
+          mapRef.current.updateLocation(coords);
+          Alert.alert('검색 완료', `${region} 지역으로 이동합니다.`);
+          setSearchText('');
+        }
+        return;
+      }
+    }
+
+    Alert.alert('검색 결과 없음', '지역명을 입력해주세요. (예: 김해, 부산, 서울)');
   };
 
   // 에러 토스트 닫기
@@ -203,118 +203,28 @@ export default function MainScreen() {
     dispatch(actions.clearError());
   };
 
-  // 검색 핸들러
-  const handleSearch = () => {
-    Keyboard.dismiss();
-    
-    if (!searchText.trim()) {
-      Alert.alert('알림', '검색어를 입력해주세요.');
-      return;
-    }
-
-    const query = searchText.trim();
-    console.log('🔍 검색 시작:', query);
-
-    // 지역명 검색
-    const matchedRegion = Object.keys(REGION_COORDINATES).find(region => 
-      query.includes(region) || region.includes(query)
-    );
-
-    if (matchedRegion) {
-      const coords = REGION_COORDINATES[matchedRegion];
-      console.log(`✅ 지역 찾음: ${matchedRegion}`, coords);
-      
-      if (mapRef.current && mapRef.current.updateLocation) {
-        mapRef.current.updateLocation({
-          latitude: coords.latitude,
-          longitude: coords.longitude
-        });
-        
-        Alert.alert('검색 완료', `${matchedRegion} 지역으로 이동합니다.`);
-        setSearchText('');
-      }
-      return;
-    }
-
-    // 대피소명 검색
-    if (shelters && shelters.length > 0) {
-      const matchedShelter = shelters.find(shelter => 
-        shelter.REARE_NM?.includes(query) || 
-        shelter.RONA_DADDR?.includes(query)
-      );
-
-      if (matchedShelter) {
-        console.log('✅ 대피소 찾음:', matchedShelter.REARE_NM);
-        
-        if (mapRef.current && mapRef.current.updateLocation) {
-          mapRef.current.updateLocation({
-            latitude: matchedShelter.latitude,
-            longitude: matchedShelter.longitude
-          });
-          
-          dispatch(actions.setSelectedTab('대피소'));
-          
-          Alert.alert('검색 완료', `${matchedShelter.REARE_NM}을(를) 찾았습니다.`);
-          setSearchText('');
-        }
-        return;
-      }
-    }
-
-    // 검색 결과 없음
-    Alert.alert(
-      '검색 결과 없음',
-      `"${query}"에 대한 검색 결과가 없습니다.\n\n지역명(예: 김해, 부산, 서울)이나 대피소명을 입력해주세요.`
-    );
-  };
-  // 탭 변경 핸들러
-  const handleTabChange = (tab) => {
-    dispatch(actions.setSelectedTab(tab));
-  };
-
-  // 로그인 성공 핸들러
-  const handleLoginSuccess = async (loginData) => {
-    setShowLoginModal(false);
-    await checkLoginStatus();
-    Alert.alert('로그인 성공', '환영합니다!');
-  };
-
-  // 로그아웃 핸들러
-  const handleLogout = async () => {
-    try {
-      await userService.logout();
-      setIsLoggedIn(false);
-      setUserInfo(null);
-      dispatch(actions.setUserInfo(null));
-      Alert.alert('로그아웃', '로그아웃되었습니다.');
-    } catch (error) {
-      console.error('로그아웃 실패:', error);
-      Alert.alert('오류', '로그아웃 중 오류가 발생했습니다.');
-    }
-  };
-
-  // 지도 터치시 키보드 닫기
+  // 지도 터치 시 키보드 닫기
   const handleKeyboardDismiss = () => {
     Keyboard.dismiss();
   };
 
   return (
     <View style={styles.container}>
-      {/* ⭐ 지도 영역 */}
+      {/* 지도 */}
       <View style={styles.mapLayer}>
-        <MapContainer 
+        <MapContainer
           ref={mapRef}
           currentLocation={currentLocation}
           onViewportChange={handleViewportChange}
           theme={theme}
           shelters={shelters}
-          onMapPress={handleKeyboardDismiss} 
+          onMapPress={handleKeyboardDismiss}
         />
       </View>
-      
-      {/* ⭐ Header는 지도 위에 */}
+
+      {/* 헤더 */}
       <View style={styles.headerLayer}>
-        <Header 
+        <Header
           theme={theme}
           onThemeChange={handleThemeChange}
           searchText={searchText}
@@ -323,13 +233,13 @@ export default function MainScreen() {
         />
       </View>
 
-      {/* ⭐ BottomSheet (BottomNavigation 포함) */}
+      {/* 바텀시트 */}
       <BottomSheet />
-      <BottomNavigation /> 
-      
-      {/* ⭐ 에러 토스트 */}
+      <BottomNavigation />
+
+      {/* 에러 토스트 */}
       {error && (
-        <ErrorToast 
+        <ErrorToast
           message={error}
           onDismiss={handleErrorDismiss}
         />

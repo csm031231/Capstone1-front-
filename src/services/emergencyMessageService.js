@@ -10,26 +10,26 @@ class EmergencyMessageService {
           throw new Error("API_ENDPOINTS.EMERGENCY.MESSAGES가 정의되지 않았습니다.");
       }
 
-      // 1. URLSearchParams를 사용하여 regionName을 쿼리 파라미터로 변환
+      // 1. URLSearchParams를 사용하여 regionName을 쿼리 파라미터로 변환합니다.
       const queryParams = new URLSearchParams({
-          rgnNm: regionName // ✅ 백엔드가 요구하는 'rgnNm' 필드명으로 쿼리 파라미터 설정
+          rgnNm: regionName 
       }).toString();
 
-      // 2. 엔드포인트에 쿼리 파라미터 추가
+      // 2. 쿼리 파라미터가 포함된 최종 엔드포인트를 생성합니다. (백엔드 요구사항: POST + Query)
       const endpoint = `${baseEndpoint}?${queryParams}`;
       
-      console.log('재난문자 API 요청 (POST):', endpoint);
+      console.log('재난문자 API 요청 (POST - Query Parameter ONLY):', endpoint);
       
-      // 3. POST 요청으로 변경 (백엔드가 POST를 요구함)
+      // 3. POST 요청을 유지하되, body 옵션과 Content-Type 헤더를 완전히 제거합니다.
+      // (FastAPI가 빈 본문 때문에 422 오류를 발생시키는 것을 방지합니다.)
       const response = await apiRequest(endpoint, {
-        method: 'POST', // ✅ POST 요청으로 변경
+        method: 'POST', 
         skipAuth: true
       });
       
       let messages = [];
       
       // 응답 구조 파싱 (정부 API 응답 형식)
-      // 구조: { header, numOfRows, pageNo, totalCount, body: [...] }
       if (response && response.body && Array.isArray(response.body)) {
         messages = response.body.map((item, index) => ({
           id: index + 1,
@@ -63,13 +63,10 @@ class EmergencyMessageService {
           disasterType: item.EMRG_STEP_NM || item.EMRGNCY_STEP_NM || item.DST_SE_NM || ''
         }));
       } 
-      // 데이터가 없는 경우
+      // 데이터가 없는 경우 (랜덤 메시지 호출 제거)
       else {
-        console.log('재난문자 데이터 없음 (totalCount: ' + (response?.totalCount || 0) + ')');
-        
-        // 데이터가 없으면 랜덤 메시지 가져오기 시도
-        console.log('🎲 랜덤 재난문자로 대체 시도...');
-        return await this.getRandomEmergencyMessage();
+        console.log('재난문자 데이터 없음. 목업 메시지를 반환합니다.');
+        return this.getMockMessages();
       }
       
       return {
@@ -84,63 +81,7 @@ class EmergencyMessageService {
     }
   }
 
-  /**
-   * CSV에서 랜덤 재난문자 가져오기 (새로 추가된 엔드포인트)
-   */
-  async getRandomEmergencyMessage() {
-    try {
-      const endpoint = API_ENDPOINTS.EMERGENCY.RANDOM;
-      
-      console.log('랜덤 재난문자 API 요청 (POST):', endpoint);
-      
-      const response = await apiRequest(endpoint, {
-        method: 'POST',
-        skipAuth: true
-      });
-      
-      console.log('랜덤 재난문자 응답:', response);
-      
-      // CSV 응답 구조 파싱: DisasterMsg.row 배열
-      if (response && response.DisasterMsg && Array.isArray(response.DisasterMsg)) {
-        const disasterData = response.DisasterMsg[0];
-        
-        if (disasterData && Array.isArray(disasterData.row)) {
-          const messages = disasterData.row.map((item, index) => ({
-            id: index + 1,
-            title: `[재난문자] ${item.MSG_CN ? item.MSG_CN.substring(0, 50) + '...' : '재난문자'}`,
-            content: item.MSG_CN || '내용 없음',
-            category: this.categorizeMessage(item.MSG_CN),
-            severity: this.getSeverity(item.MSG_CN),
-            location: item.RCPTN_RGN_NM || '지역 정보 없음',
-            time: this.formatTime(item.CRT_DT),
-            timestamp: item.CRT_DT,
-            isRead: false,
-            messageId: item.SN ? String(item.SN) : `random_msg_${index}`,
-            sendDate: item.REG_YMD || '',
-            disasterType: item.EMRG_STEP_NM || item.DST_SE_NM || ''
-          }));
-          
-          return {
-            success: true,
-            totalCount: messages.length,
-            messages: messages
-          };
-        }
-      }
-      
-      console.warn('예상과 다른 응답 구조:', response);
-      return { success: false, totalCount: 0, messages: [] };
-      
-    } catch (error) {
-      console.error('랜덤 재난문자 조회 실패:', error);
-      return {
-        success: false,
-        totalCount: 0,
-        messages: [],
-        error: error.message
-      };
-    }
-  }
+  // getRandomEmergencyMessage 함수 제거됨
 
   categorizeMessage(content) {
     if (!content) return 'other';
