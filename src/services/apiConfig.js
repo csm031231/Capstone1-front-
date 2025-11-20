@@ -201,8 +201,18 @@ export const API_ENDPOINTS = {
     REGISTER: '/users/register',
     ME: '/users/me',
     UPDATE_ME: '/users/me',
-    CHANGE_PASSWORD: '/users/change-password',
+    CHANGE_PASSWORD: '/users/me/password', // 💡 /users/change-password에서 수정
     DELETE: '/users/delete',
+  },
+  
+  REGION: { // 💡 새 섹션 추가
+    ALL: '/users/regions/list',
+    SEARCH: '/users/regions/search',
+    MY_REGIONS: '/users/regions/my-regions',
+    ADD: '/users/regions/add',
+    REMOVE: '/users/regions/remove',
+    BULK_ADD: '/users/regions/add-multiple',
+    CLEAR: '/users/regions/clear',
   },
   
   EMERGENCY: {
