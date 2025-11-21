@@ -23,7 +23,7 @@ const BOTTOM_NAV_HEIGHT = 60;  // 하단 네비게이션 바 높이
 const PEEK_HEIGHT = 138;        // 미리보기 높이
 const EXPANDED_HEIGHT = SCREEN_HEIGHT * 0.8; // 확장 높이
 
-export default function BottomSheet() {
+export default function BottomSheet({ mapRef }) {
   const { selectedTab } = useAppState();
   const dispatch = useAppDispatch();
   
@@ -179,7 +179,7 @@ export default function BottomSheet() {
       case '뉴스':
         return <NewsContent isVisible={true} />;
       case '대피소':
-        return <ShelterContent isVisible={true} />;
+        return <ShelterContent isVisible={true} mapRef={mapRef} />;
       case '재난문자':
         return <MessageContent />;
       case '재난행동요령':

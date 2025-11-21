@@ -21,12 +21,22 @@ export default function MainScreen() {
   const [showRelatedSearches, setShowRelatedSearches] = useState(false);
   const mapRef = React.useRef(null);
   const searchTimeoutRef = React.useRef(null);
-  
+  const [selectedShelter] = useState(null);
+
   useEffect(() => {
-    if (currentViewport && selectedTab === '대피소') {
-      loadShelters(currentViewport);
-    }
-  }, [currentViewport, selectedTab]);
+    const loadSheltersAlways = async () => {
+      if (currentViewport) {
+        // 현재 화면 범위의 대피소 로드
+        await loadShelters(currentViewport);
+      } else if (mapRef.current?.getViewportBounds) {
+        // viewport가 없으면 지도로부터 가져옴
+        const bounds = await mapRef.current.getViewportBounds();
+        await loadShelters(bounds);
+      }
+    };
+    
+    loadSheltersAlways();
+  }, [currentViewport]);
   
   useEffect(() => {
     loadNews();
@@ -264,7 +274,14 @@ export default function MainScreen() {
       }
     };
   }, []);
-
+  
+  // 🆕 4. BottomSheet 닫기 핸들러 정의
+  const handleBottomSheetClose = () => {
+    console.log('🔽 BottomSheet 닫기');
+    if(mapRef.current?.clearRoute) {
+        mapRef.current.clearRoute(); // 닫을 때 지도에 그려진 경로도 지웁니다.
+    }
+  };
   return (
     <View style={styles.container}>
       <View style={styles.mapLayer}>
@@ -274,7 +291,8 @@ export default function MainScreen() {
           onViewportChange={handleViewportChange}
           theme={theme}
           shelters={shelters}
-          onMapPress={handleKeyboardDismiss} 
+          onMapPress={handleKeyboardDismiss}
+          
         />
       </View>
       
@@ -292,7 +310,11 @@ export default function MainScreen() {
         />
       </View>
 
-      <BottomSheet />
+      {/* 📍 6. BottomSheet에 필요한 props 전달 */}
+      <BottomSheet 
+        onClose={handleBottomSheetClose} // BottomSheet 닫기 시 호출
+        mapRef={mapRef} // ⬅️ **MapContainer의 Ref 전달 (핵심 수정)**
+      />
       <BottomNavigation /> 
       
       {error && (
