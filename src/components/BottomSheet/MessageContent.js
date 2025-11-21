@@ -1,16 +1,18 @@
 // src/components/BottomSheet/MessageContent.js
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
-// import AIChatbotModal from '../common/AIChatbotModal'; // ❌ AI 챗봇 모달 임포트 제거
 import emergencyMessageService from '../../services/emergencyMessageService';
 import { useAppState } from '../../store/AppContext';
+// ❌ FCM 설정 함수 임포트 제거 (번들링 오류 방지)
+// import { setupFCM } from '../../utils/fcmManager'; 
 
 const MessageContent = () => {
-  const { currentLocation, selectedTab } = useAppState();
+  // ✅ useAppState에서 사용자 관련 상태를 가져옵니다.
+  const { currentLocation, selectedTab, user } = useAppState(); 
   const [messages, setMessages] = useState([]);
-  // const [showAiChat, setShowAiChat] = useState(false); // ❌ 챗봇 상태 제거
   const [loading, setLoading] = useState(false);
-
+  
+  // (getRegionName 함수 생략)
   const getRegionName = () => {
     if (currentLocation && currentLocation.favoriteRegion) {
         return currentLocation.favoriteRegion;
@@ -18,6 +20,13 @@ const MessageContent = () => {
     return '김해시';
   }
 
+  // ❌ 1. FCM 토큰 발급 및 서버 전송 로직 제거
+  useEffect(() => {
+    // console.log("FCM 설정 시도: MessageContent 마운트됨");
+    // setupFCM(); // 호출 제거
+  }, []); 
+
+  // (나머지 loadMessages 및 렌더링 로직은 유지)
   useEffect(() => {
     if (selectedTab === '재난문자') {
       loadMessages();
@@ -74,13 +83,6 @@ const MessageContent = () => {
           </Text>
           
           {/* ❌ AI 챗봇 버튼 제거 */}
-          {/* <TouchableOpacity 
-            style={styles.aiChatButton}
-            onPress={() => setShowAiChat(true)}
-          >
-            <Text style={styles.aiChatButtonText}>AI 도우미에게 물어보기</Text>
-          </TouchableOpacity>
-          */}
           
           <View style={styles.itemList}>
             {loading ? (
@@ -111,13 +113,6 @@ const MessageContent = () => {
       </ScrollView>
 
       {/* ❌ AI 챗봇 모달 제거 */}
-      {/*
-      <AIChatbotModal
-        visible={showAiChat}
-        onClose={() => setShowAiChat(false)}
-        initialMessage="재난문자에 대해 궁금한 점이 있어요"
-      />
-      */}
     </>
   );
 };

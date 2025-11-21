@@ -9,15 +9,12 @@ import {
   ActivityIndicator,
   TextInput,
   Modal,
-  // KeyboardAvoidingView, (사용하지 않음)
-  // Platform, (사용하지 않음)
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import COLORS from '../../constants/colors';
 import userService from '../../services/userService';
-import emergencyMessageService from '../../services/emergencyMessageService';
 
-const TEST_MODE = false;
+// 💡 TEST_MODE 상수를 삭제했습니다.
 
 const UserProflile = ({ visible, onClose, onLogout }) => {
   const [userInfo, setUserInfo] = useState(null);
@@ -27,23 +24,31 @@ const UserProflile = ({ visible, onClose, onLogout }) => {
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [showRegionModal, setShowRegionModal] = useState(false);
   const [regionLoading, setRegionLoading] = useState(true); // 지역 목록 로딩 상태
-  const [availableRegions, setAvailableRegions] = useState([]); // API에서 가져올 지역 목록
+  
+  // 시/도 지역 목록
+  const [availableProvinces, setAvailableProvinces] = useState([]); 
+  // 사용자가 현재 등록한 관심 지역 목록
+  const [userInterestRegions, setUserInterestRegions] = useState([]);
+  
   const [passwordData, setPasswordData] = useState({
     currentPassword: '',
     newPassword: '',
     confirmPassword: '',
   });
 
-  const mockUserData = {
-    id: 'test_user_001',
-    username: 'testuser',
-    nickname: '김해시민',
-    email: 'test@kimhae.go.kr',
-    phone: '010-1234-5678',
-    created_at: '2024-01-15T09:30:00Z',
-    current_latitude: 35.2281,
-    current_longitude: 128.8890,
-    favoriteRegion: '경상남도'
+  // 💡 mockUserData 정의를 삭제했습니다.
+
+  // 💡 추가: 사용자 관심지역 로드 함수
+  const loadUserInterestRegions = async () => {
+    try {
+      // userService를 통해 관심지역 목록 API 호출
+      const regionData = await userService.getInterestRegions(); 
+      setUserInterestRegions(regionData.regions || []);
+    } catch (error) {
+      console.error('사용자 관심지역 로드 실패:', error);
+      // Alert.alert('오류', '관심지역 정보를 불러올 수 없습니다.');
+      setUserInterestRegions([]);
+    }
   };
 
   const loadUserInfo = async () => {
@@ -51,12 +56,9 @@ const UserProflile = ({ visible, onClose, onLogout }) => {
       setLoading(true);
       let userData = null;
       
-      if (TEST_MODE) {
-        userData = mockUserData;
-      } else {
-        // 비동기 호출
-        userData = await userService.getUserInfo();
-      }
+      // 💡 TEST_MODE 블록 제거, 실제 API 호출만 남김
+      userData = await userService.getUserInfo();
+      await loadUserInterestRegions(); 
       
       // 사용자 정보 설정
       setUserInfo(userData);
@@ -67,35 +69,39 @@ const UserProflile = ({ visible, onClose, onLogout }) => {
         nickname: userData?.nickname || '',
         phone: userData?.phone || '',
         email: userData?.email || '',
-        favoriteRegion: userData?.favoriteRegion || '',
       });
       
     } catch (error) {
       console.error('사용자 정보 로드 실패:', error);
-      if (!TEST_MODE) {
-        Alert.alert('오류', '사용자 정보를 불러올 수 없습니다.');
-      }
+      // 💡 TEST_MODE 블록 제거
+      Alert.alert('오류', '사용자 정보를 불러올 수 없습니다.');
       setUserInfo(null);
       setEditData({});
+      setUserInterestRegions([]);
     } finally {
       // ✅ 로딩 상태는 모든 상태 업데이트가 완료된 후 가장 마지막에 해제합니다.
       setLoading(false);
     }
   };
 
-  const loadRegions = async () => {
+  // 💡 수정: loadRegions -> loadAvailableProvinces (시/도 목록 로드)
+  const loadAvailableProvinces = async () => {
     setRegionLoading(true);
     try {
-      const response = await emergencyMessageService.getRegions();
-      setAvailableRegions(response.regions || []);
+      // userService.getProvinces 메서드 사용
+      const provinces = await userService.getProvinces(); 
+      // API 응답은 RegionResponse 리스트이므로 그대로 저장
+      setAvailableProvinces(provinces || []); 
     } catch (error) {
-      console.error('지역 목록 로드 실패:', error);
-      // Alert.alert('오류', '지역 목록을 불러올 수 없습니다.');
+      console.error('시/도 목록 로드 실패:', error);
+      Alert.alert('오류', '지역 목록을 불러올 수 없습니다.');
+      setAvailableProvinces([]);
     } finally {
       setRegionLoading(false);
     }
   };
-useEffect(() => {
+  
+  useEffect(() => {
     if (visible) {
       // 모달이 열릴 때만 사용자 정보를 로드하고 로딩 상태를 관리
       loadUserInfo();
@@ -106,30 +112,32 @@ useEffect(() => {
   
   useEffect(() => {
     if (showRegionModal) {
-      loadRegions();
+      loadAvailableProvinces(); // 관심지역 모달이 열릴 때 시/도 목록 로드
     }
   }, [showRegionModal]);
   
   const handleSave = async () => {
     try {
       setLoading(true);
+
+      const updatePayload = {
+        username: editData.username,
+        email: editData.email,
+        nickname: editData.nickname,
+        phone: editData.phone,
+      };
       
-      if (TEST_MODE) {
-        const updatedUser = { ...mockUserData, ...editData };
-        setUserInfo(updatedUser);
-        setEditing(false);
-        Alert.alert('저장 완료', '정보가 업데이트되었습니다.');
-      } else {
-        const updatedUser = await userService.updateProfile(editData);
-        setUserInfo(updatedUser);
-        setEditing(false);
-        Alert.alert('성공', '정보가 성공적으로 업데이트되었습니다.');
-      }
+      // 💡 TEST_MODE 블록 제거, 실제 API 호출만 남김
+      const updatedUser = await userService.updateProfile(updatePayload); 
+      setUserInfo(updatedUser);
+      setEditing(false);
+      Alert.alert('성공', '정보가 성공적으로 업데이트되었습니다.');
+      
     } catch (error) {
       console.error('정보 수정 실패:', error);
-      if (!TEST_MODE) {
-        Alert.alert('오류', '정보 수정 중 오류가 발생했습니다.');
-      }
+      // 💡 TEST_MODE 블록 제거
+      const errorMessage = error.message || '정보 수정 중 오류가 발생했습니다.';
+      Alert.alert('오류', errorMessage);
     } finally {
       setLoading(false);
     }
@@ -138,7 +146,7 @@ useEffect(() => {
   const handleLogout = () => {
     Alert.alert(
       '로그아웃',
-      TEST_MODE ? 'TEST MODE에서 로그아웃하시겠습니까?' : '정말 로그아웃하시겠습니까?',
+      '정말 로그아웃하시겠습니까?',
       [
         { text: '취소', style: 'cancel' },
         {
@@ -146,17 +154,15 @@ useEffect(() => {
           style: 'destructive',
           onPress: async () => {
             try {
-              if (!TEST_MODE) {
-                await userService.logout();
-              }
+              // 💡 TEST_MODE 블록 제거, 실제 API 호출만 남김
+              await userService.logout();
               Alert.alert('로그아웃', '성공적으로 로그아웃되었습니다.');
               onClose();
               if (onLogout) onLogout();
             } catch (error) {
               console.error('로그아웃 실패:', error);
-              if (!TEST_MODE) {
-                Alert.alert('오류', '로그아웃 중 오류가 발생했습니다.');
-              }
+              // 💡 TEST_MODE 블록 제거
+              Alert.alert('오류', '로그아웃 중 오류가 발생했습니다.');
             }
           }
         }
@@ -170,7 +176,6 @@ useEffect(() => {
       nickname: userInfo?.nickname || '',
       phone: userInfo?.phone || '',
       email: userInfo?.email || '',
-      favoriteRegion: userInfo?.favoriteRegion || '',
     });
     setEditing(false);
   };
@@ -196,43 +201,51 @@ useEffect(() => {
     try {
       setLoading(true);
       
-      if (TEST_MODE) {
-        Alert.alert('성공', '비밀번호가 변경되었습니다.');
-        setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
-        setShowPasswordModal(false);
-      } else {
-        await userService.changePassword(currentPassword, newPassword);
-        Alert.alert('성공', '비밀번호가 성공적으로 변경되었습니다.');
-        setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
-        setShowPasswordModal(false);
-      }
+      // 💡 TEST_MODE 블록 제거, 실제 API 호출만 남김
+      await userService.changePassword(currentPassword, newPassword); 
+      Alert.alert('성공', '비밀번호가 성공적으로 변경되었습니다.');
+      
+      setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
+      setShowPasswordModal(false);
+
     } catch (error) {
-      Alert.alert('오류', error.message || '비밀번호 변경 중 오류가 발생했습니다.');
+      console.error('비밀번호 변경 실패:', error);
+      const errorMessage = error.message || '비밀번호 변경 중 오류가 발생했습니다.';
+      Alert.alert('오류', errorMessage);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleSelectRegion = async (region) => {
+  // 💡 수정: handleSelectRegion 로직을 관심지역 추가/갱신 로직으로 변경 (단일 선택 기반)
+  const handleSelectRegion = async (regionName, regionId) => {
     try {
       setRegionLoading(true);
       
-      const newEditData = { ...editData, favoriteRegion: region };
+      const isAlreadySelected = userInterestRegions.some(r => r.region_id === regionId);
       
-      if (TEST_MODE) {
-        const updatedUserInfo = { ...userInfo, favoriteRegion: region };
-        setUserInfo(updatedUserInfo);
-        setEditData(newEditData);
-        Alert.alert('성공', `관심지역이 ${region}(으)로 설정되었습니다.`);
+      if (isAlreadySelected) {
+          Alert.alert('알림', '이미 선택된 지역입니다. 취소하려면 다른 지역을 선택해 주세요.');
+          setRegionLoading(false);
+          return;
+      }
+      
+      // 💡 TEST_MODE 블록 제거, 실제 API 호출만 남김
+      // 실제 API 호출: 기존 모두 삭제 후 선택된 하나만 추가
+      const regionIdsToUpdate = [regionId];
+      const updateResult = await userService.updateInterestRegions(regionIdsToUpdate);
+
+      if (updateResult.success_count > 0 || regionIdsToUpdate.length === 0) {
+        // 성공적으로 업데이트되면 관심지역 정보를 새로고침
+        await loadUserInterestRegions(); 
+        Alert.alert('성공', `관심지역이 ${regionName}(으)로 설정되었습니다.`);
         setShowRegionModal(false);
       } else {
-        const updatedUser = await userService.updateProfile(newEditData);
-        setUserInfo(updatedUser);
-        setEditData(newEditData);
-        Alert.alert('성공', `관심지역이 ${region}(으)로 설정되었습니다.`);
-        setShowRegionModal(false);
+        Alert.alert('오류', '관심지역 설정 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.');
       }
+      
     } catch (error) {
+      console.error('관심지역 설정 실패:', error);
       Alert.alert('오류', '관심지역 설정 중 오류가 발생했습니다.');
     } finally {
       setRegionLoading(false);
@@ -270,6 +283,18 @@ useEffect(() => {
       </View>
     </View>
   );
+  
+  // 💡 관심지역 표시를 위한 문자열 생성
+  const getRegionDisplayText = () => {
+    if (userInterestRegions.length === 0) {
+      return '미설정';
+    }
+    const firstRegionName = userInterestRegions[0].region_name;
+    if (userInterestRegions.length === 1) {
+      return firstRegionName;
+    }
+    return `${firstRegionName} 외 ${userInterestRegions.length - 1}개`;
+  };
 
   return (
     <Modal
@@ -318,12 +343,7 @@ useEffect(() => {
                         {userInfo?.nickname || userInfo?.username || '사용자'}
                       </Text>
                       <Text style={styles.profileEmail}>{userInfo?.email}</Text>
-                      {TEST_MODE && (
-                        <View style={styles.testModeBadge}>
-                          <Ionicons name="construct-outline" size={12} color={COLORS.warning} />
-                          <Text style={styles.testModeLabel}>TEST MODE</Text>
-                        </View>
-                      )}
+                      {/* 💡 TEST_MODE 뱃지 삭제 */}
                     </View>
                   </View>
 
@@ -388,7 +408,8 @@ useEffect(() => {
                       <InfoRow icon="person-outline" label="사용자명" value={userInfo?.username || '미설정'} />
                       <InfoRow icon="happy-outline" label="닉네임" value={userInfo?.nickname || '미설정'} />
                       <InfoRow icon="call-outline" label="전화번호" value={userInfo?.phone || '미설정'} />
-                      <InfoRow icon="location-outline" label="관심지역" value={userInfo?.favoriteRegion || '미설정'} />
+                      {/* 💡 관심지역 표시 수정 */}
+                      <InfoRow icon="location-outline" label="관심지역" value={getRegionDisplayText()} />
                       <InfoRow 
                         icon="calendar-outline" 
                         label="가입일" 
@@ -415,7 +436,8 @@ useEffect(() => {
                 <MenuButton
                   icon="location-outline"
                   title="관심지역 설정"
-                  description={userInfo?.favoriteRegion ? `현재: ${userInfo.favoriteRegion}` : "관심 지역을 설정하세요"}
+                  // 💡 관심지역 표시 수정
+                  description={userInterestRegions.length > 0 ? `현재: ${getRegionDisplayText()}` : "관심 지역을 설정하세요"}
                   onPress={() => setShowRegionModal(true)}
                   color="#28a745"
                 />
@@ -558,7 +580,8 @@ useEffect(() => {
                     <View style={styles.currentRegionInfo}>
                       <Text style={styles.currentRegionLabel}>설정된 지역</Text>
                       <Text style={styles.currentRegionValue}>
-                        {userInfo?.favoriteRegion || '설정되지 않음'}
+                        {/* 💡 현재 관심지역 표시 수정 */}
+                        {getRegionDisplayText()}
                       </Text>
                     </View>
                   </View>
@@ -569,7 +592,7 @@ useEffect(() => {
               <View style={styles.section}>
                 <View style={styles.sectionHeader}>
                   <Ionicons name="list-outline" size={20} color={COLORS.primary} />
-                  <Text style={styles.sectionTitle}>지역 선택</Text>
+                  <Text style={styles.sectionTitle}>시/도 선택 (단일 관심지역 설정)</Text>
                 </View>
 
                 {regionLoading ? (
@@ -577,19 +600,22 @@ useEffect(() => {
                       <ActivityIndicator size="large" color={COLORS.primary} />
                       <Text style={styles.loadingText}>지역 목록 불러오는 중...</Text>
                     </View>
-                ) : availableRegions.length === 0 ? (
+                ) : availableProvinces.length === 0 ? (
                     <Text style={styles.emptyRegionText}>지역 목록을 불러올 수 없습니다.</Text>
                 ) : (
-                    availableRegions.map((region, index) => {
-                    const isSelected = userInfo?.favoriteRegion === region;
+                    // availableProvinces 목록을 사용
+                    availableProvinces.map((region) => {
+                    // isSelected 로직: userInterestRegions에 포함되어 있는지 확인
+                    const isSelected = userInterestRegions.some(r => r.region_id === region.id);
                     return (
                       <TouchableOpacity
-                        key={index}
+                        key={region.id} // key를 region.id로 설정
                         style={[
                           styles.regionSelectItem,
                           isSelected && styles.regionSelectItemSelected
                         ]}
-                        onPress={() => handleSelectRegion(region)}
+                        // handleSelectRegion에 region.name과 region.id 전달
+                        onPress={() => handleSelectRegion(region.name, region.id)}
                         disabled={regionLoading}
                         activeOpacity={0.7}
                       >
@@ -608,7 +634,7 @@ useEffect(() => {
                             styles.regionSelectText,
                             isSelected && styles.regionSelectTextSelected
                           ]}>
-                            {region}
+                            {region.name} 
                           </Text>
                         </View>
                         {isSelected && (

@@ -4,6 +4,8 @@ import { View, Text, StyleSheet, ScrollView, ActivityIndicator } from 'react-nat
 import { useAppState } from '../../store/AppContext';
 import EmptyState from '../common/EmptyState';
 import emergencyMessageService from '../../services/emergencyMessageService';
+// ❌ FCM 설정 함수 임포트 제거 (번들링 오류 방지를 위해 동적 로딩으로 변경)
+// import { setupFCM } from '../../utils/fcmManager'; 
 
 export default function MessageContainer() {
   const { currentLocation } = useAppState();
@@ -17,6 +19,24 @@ export default function MessageContainer() {
     return '김해시'; 
   }
 
+  // ✅ 1. FCM 토큰 발급 및 서버 전송 로직 (동적 로딩)
+  useEffect(() => {
+    // 네이티브 환경 (iOS/Android)에서만 FCM 설정을 시도합니다.
+    // 웹 환경에서는 이 블록이 실행되지 않아 번들링 오류를 피합니다.
+    if (typeof navigator !== 'undefined' && navigator.product === 'ReactNative') {
+        try {
+            // 동적으로 fcmManager를 로드하고 setupFCM을 호출합니다.
+            const { setupFCM } = require('../../utils/fcmManager');
+            setupFCM();
+            console.log("FCM setup initiated in native environment.");
+        } catch (e) {
+            // 모듈을 찾을 수 없으면 경고만 출력하고 앱은 계속 실행됩니다.
+            console.warn("FCM setup skipped: fcmManager module loading failed.", e.message);
+        }
+    }
+  }, []); 
+
+  // 2. 기존 재난문자 로드 로직
   useEffect(() => {
     loadMessages();
   }, [currentLocation]);

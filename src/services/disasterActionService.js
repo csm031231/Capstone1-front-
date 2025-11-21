@@ -105,13 +105,23 @@ class DisasterActionService {
       console.error('행동요령 조회 실패:', error);
       
       const mockData = this.getMockActions();
+      
+      // ✅ 모의 데이터 필터링 로직 추가 (categoryCode에 따라 필터링)
+      const filteredItems = mockData.items.filter(item => {
+        const matchesCategory = !category || item.category_code === category;
+        const matchesSearch = !search || 
+                              item.title.includes(search) || 
+                              item.content.includes(search);
+        return matchesCategory && matchesSearch;
+      });
+      
       const startIndex = (page - 1) * limit;
       const endIndex = startIndex + limit;
       
       return {
         success: true,
-        items: mockData.items.slice(startIndex, endIndex),
-        total: mockData.total,
+        items: filteredItems.slice(startIndex, endIndex),
+        total: filteredItems.length,
         page,
         limit,
         isFromMock: true
