@@ -1,5 +1,5 @@
 // ============================================
-// 📁 src/components/Header/Header.js (TEST_MODE 제거 버전)
+// 📁 src/components/Header/Header.js (완전판)
 // ============================================
 import React, { useState, useRef, useEffect } from 'react';
 import { 
@@ -8,7 +8,6 @@ import {
     TextInput, 
     TouchableOpacity, 
     Keyboard, 
-    Alert, // Alert가 사용되지 않았으나, 메뉴 핸들러에서 사용될 가능성 고려하여 유지
     Text, 
     FlatList 
 } from 'react-native';
@@ -31,15 +30,14 @@ const Header = ({
     showRelatedSearches = false, 
     onSearchTextChange 
 }) => {
-    // ⚠️ TEST_MODE 조건부 초기값 제거
     const [showSideMenu, setShowSideMenu] = useState(false);
     const [showSettingsModal, setShowSettingsModal] = useState(false);
-    const [showLoginModal, setShowLoginModal] = useState(false); // 로그인 관련 state 추가
-    const [showMyPage, setShowMyPage] = useState(false); // 마이페이지 관련 state 추가
-    const [modalMode, setModalMode] = useState('login'); // 로그인 모달 모드 state 추가
-    const [isLoggedIn, setIsLoggedIn] = useState(false); // 초기값 false
-    const [userInfo, setUserInfo] = useState(null); // 초기값 null
-    const [loading, setLoading] = useState(false); // 로딩 state 추가
+    const [showLoginModal, setShowLoginModal] = useState(false);
+    const [showMyPage, setShowMyPage] = useState(false);
+    const [modalMode, setModalMode] = useState('login');
+    const [isLoggedIn, setIsLoggedIn] = useState(false);
+    const [userInfo, setUserInfo] = useState(null);
+    const [loading, setLoading] = useState(false);
     
     const searchInputRef = useRef(null); 
 
@@ -52,7 +50,7 @@ const Header = ({
     const menuButtonBg = isDarkTheme ? COLORS.surfaceDark : COLORS.surface;
     const menuButtonIconColor = isDarkTheme ? COLORS.textWhite : COLORS.primary;
 
-    // 🔄 초기 사용자 정보 로드 (TEST_MODE 제거)
+    // 🔄 초기 사용자 정보 로드
     useEffect(() => {
         loadUserInfo();
     }, []);
@@ -82,15 +80,13 @@ const Header = ({
     const handleLogout = async () => {
         try {
             setLoading(true);
-            await userService.logout(); // ⚠️ TEST_MODE 조건 제거
+            await userService.logout();
             setIsLoggedIn(false);
             setUserInfo(null);
             setShowSideMenu(false);
             setShowMyPage(false);
-            // Alert는 필요에 따라 추가
         } catch (error) {
             console.error('로그아웃 실패:', error);
-            // Alert.alert('오류', '로그아웃 처리 중 문제가 발생했습니다.');
         } finally {
             setLoading(false);
         }
@@ -99,9 +95,8 @@ const Header = ({
     const handleLoginSuccess = async (loginData) => {
         try {
             setShowLoginModal(false);
-            setLoading(true); // ⚠️ TEST_MODE 조건 제거
+            setLoading(true);
             await loadUserInfo(); 
-            // Alert.alert('성공', '로그인되었습니다.');
         } catch (error) {
             console.error('로그인 후 처리 실패:', error);
         } finally {
@@ -110,7 +105,6 @@ const Header = ({
     };
 
     const handleMenuItemPress = (itemId) => {
-        // 설정 버튼을 제외하고는 메뉴를 닫음
         if (itemId !== 'settings') {
             setShowSideMenu(false);
         }
@@ -131,16 +125,14 @@ const Header = ({
                 break;
                 
             case 'mypage':
-            case 'profile-edit': // 마이페이지/프로필 수정은 MyPageScreen으로 통합
+            case 'profile-edit':
                 setTimeout(() => setShowMyPage(true), 300);
                 break;
             
             case 'interest-location':
-                // Alert.alert('관심지역', '관심지역 설정 화면으로 이동합니다.');
                 break;
 
             case 'logout':
-                // 로그아웃 알림은 필요에 따라 Alert.alert로 대체 가능
                 handleLogout();
                 break;
                 
@@ -149,7 +141,6 @@ const Header = ({
                 break;
             
             case 'help':
-                // Alert.alert('도움말', '도움말 및 문의 화면으로 이동합니다.');
                 break;
                 
             default:
@@ -167,7 +158,6 @@ const Header = ({
         setShowSettingsModal(false);
     };
     
-    // ⭐ 검색어 변경 핸들러
     const handleTextChange = (text) => {
         setSearchText(text);
         onSearchTextChange && onSearchTextChange(text);
@@ -196,7 +186,6 @@ const Header = ({
         searchInputRef.current?.focus();
     };
 
-    // ⭐ 전역 함수로 등록 (외부에서 blur 가능)
     useEffect(() => {
         window.blurSearchInput = () => {
             searchInputRef.current?.blur();
@@ -206,7 +195,6 @@ const Header = ({
         };
     }, []);
 
-    // ⭐ 관련 검색어 항목 렌더링
     const renderRelatedSearchItem = ({ item }) => (
         <TouchableOpacity
             style={[
@@ -248,7 +236,7 @@ const Header = ({
                         placeholder="지역명 또는 대피소 검색"
                         placeholderTextColor={secondaryTextColor}
                         value={searchText}
-                        onChangeText={handleTextChange} // ⭐ 변경: 자동완성 트리거
+                        onChangeText={handleTextChange}
                         onSubmitEditing={handleSearchSubmit}
                         onFocus={handleSearchFocus}
                         returnKeyType="search"
@@ -273,7 +261,6 @@ const Header = ({
                 </TouchableOpacity>
             </View>
 
-            {/* ⭐ 관련 검색어 리스트 (자동완성 스타일) */}
             {showRelatedSearches && relatedSearches && relatedSearches.length > 0 && (
                 <View style={[
                     styles.relatedSearchesContainer,
@@ -322,7 +309,7 @@ const Header = ({
                 visible={showMyPage}
                 onClose={() => {
                     setShowMyPage(false);
-                    loadUserInfo(); // ⚠️ TEST_MODE 조건 제거
+                    loadUserInfo();
                 }}
                 onLogout={handleLogout}
             />

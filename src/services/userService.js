@@ -1,6 +1,5 @@
 // src/services/userService.js
-import { apiRequest, API_ENDPOINTS, getStorageItem, setStorageItem, removeStorageItem } from '../apiConfig'; // apiConfig에서 storage 헬퍼 함수 가져오기
-
+import { apiRequest, API_ENDPOINTS, getStorageItem, setStorageItem, removeStorageItem } from './apiConfig'; // apiConfig에서 storage 헬퍼 함수 가져오기
 // 💡 AsyncStorage 대신 apiConfig의 헬퍼 함수를 사용하도록 로직 변경 (이 파일에서 직접 AsyncStorage 사용 방지)
 const AsyncStorage = {
     getItem: getStorageItem,

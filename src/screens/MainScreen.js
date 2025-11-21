@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import { View, Keyboard, StyleSheet, Alert } from 'react-native';
 import { useAppState, useAppDispatch, actions } from '../store/AppContext';
-import { apiService } from '../services/apiConfig';
+import { apiService } from '../services/ApiService';
 import userService from '../services/userService';
 import emergencyMessageService from '../services/emergencyMessageService';
 import disasterActionService from '../services/disasterActionService';
@@ -12,18 +12,15 @@ import MapContainer from '../components/Map/MapContainer';
 import BottomSheet from '../components/BottomSheet/BottomSheet';
 import BottomNavigation from '../components/Navigation/BottomNavigation';
 import ErrorToast from '../components/common/ErrorToast';
-import LoginSignupModal from '../components/Header/LoginSignupModal';
-import MyPageScreen from '../components/Header/UserProfile';
 
 export default function MainScreen() {
   const { currentLocation, currentViewport, selectedTab, error, shelters } = useAppState();
   const dispatch = useAppDispatch();
   const [theme, setTheme] = useState('white');
   const [searchText, setSearchText] = useState('');
-  const [isLoggedIn, setIsLoggedIn] = useState(contextIsLoggedIn || false);
-  const [userInfo, setUserInfo] = useState(contextUserInfo || null);
-  const [showLoginModal, setShowLoginModal] = useState(false);
-  const [showMyPage, setShowMyPage] = useState(false);
+  const [relatedSearches, setRelatedSearches] = useState([]);
+  const [showRelatedSearches, setShowRelatedSearches] = useState(false);
+  const searchTimeoutRef = React.useRef(null);
   const mapRef = React.useRef(null);
   
   // 지역별 좌표 데이터
@@ -57,30 +54,6 @@ export default function MainScreen() {
     '여수': { latitude: 34.7604, longitude: 127.6622 },
     '제주': { latitude: 33.4996, longitude: 126.5312 },
   };
-  
-  // 초기 로그인 상태 체크
-  useEffect(() => {
-    checkLoginStatus();
-  }, []);
-  
-  const checkLoginStatus = async () => {
-    try {
-      const isValid = await userService.checkToken();
-      setIsLoggedIn(isValid);
-      
-      if (isValid) {
-        const info = await userService.getUserInfo();
-        setUserInfo(info);
-        
-        // Context에도 저장
-        dispatch(actions.setUserInfo(info));
-      }
-    } catch (error) {
-      console.error('로그인 상태 체크 실패:', error);
-      setIsLoggedIn(false);
-      setUserInfo(null);
-    }
-  };
 
   // viewport 변경시 대피소 데이터 자동 로드
   useEffect(() => {
@@ -105,12 +78,25 @@ export default function MainScreen() {
         break;
     }
   }, [selectedTab]);
+
+  // 뉴스는 컴포넌트 마운트 시 한 번만 로드
+  useEffect(() => {
+    loadNews();
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+      }
+    };
+  }, []);
   
   // 재난문자 로드
   const loadMessages = async () => {
     try {
       dispatch(actions.setLoading('messages', true));
-      const region = '김해시'; // 또는 현재 위치 기반
+      const region = '김해시';
       const response = await emergencyMessageService.getEmergencyMessages(region);
       
       if (response.success) {
@@ -123,11 +109,6 @@ export default function MainScreen() {
       dispatch(actions.setLoading('messages', false));
     }
   };
-
-  // 뉴스는 컴포넌트 마운트 시 한 번만 로드
-  useEffect(() => {
-    loadNews();
-  }, []);
   
   // 재난행동요령 로드
   const loadActions = async () => {
@@ -202,6 +183,66 @@ export default function MainScreen() {
     dispatch(actions.clearError());
   };
 
+  // 검색어 자동완성 핸들러
+  const handleSearchTextChange = (text) => {
+    setSearchText(text);
+    
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+    }
+    
+    if (!text.trim()) {
+      setRelatedSearches([]);
+      setShowRelatedSearches(false);
+      return;
+    }
+    
+    searchTimeoutRef.current = setTimeout(() => {
+      const regionMatches = Object.keys(REGION_COORDINATES).filter(region =>
+        region.includes(text) || text.includes(region)
+      );
+      
+      const shelterMatches = (shelters || [])
+        .filter(shelter => 
+          shelter.REARE_NM?.includes(text) || 
+          shelter.RONA_DADDR?.includes(text)
+        )
+        .slice(0, 5)
+        .map(s => s.REARE_NM);
+      
+      const allMatches = [...new Set([...regionMatches, ...shelterMatches])].slice(0, 10);
+      
+      setRelatedSearches(allMatches);
+      setShowRelatedSearches(allMatches.length > 0);
+    }, 300);
+  };
+
+  // 자동완성 항목 클릭 핸들러
+  const handleRelatedSearchClick = (searchItem) => {
+    setSearchText(searchItem);
+    setShowRelatedSearches(false);
+    
+    const matchedRegion = Object.keys(REGION_COORDINATES).find(region => 
+      searchItem.includes(region) || region.includes(searchItem)
+    );
+
+    if (matchedRegion) {
+      const coords = REGION_COORDINATES[matchedRegion];
+      if (mapRef.current && mapRef.current.moveAndZoom) {
+        mapRef.current.moveAndZoom(coords.latitude, coords.longitude, 13);
+      }
+    } else {
+      const matchedShelter = (shelters || []).find(shelter => 
+        shelter.REARE_NM === searchItem
+      );
+      
+      if (matchedShelter && mapRef.current && mapRef.current.moveAndZoom) {
+        mapRef.current.moveAndZoom(matchedShelter.latitude, matchedShelter.longitude, 15);
+        dispatch(actions.setSelectedTab('대피소'));
+      }
+    }
+  };
+
   // 검색 핸들러
   const handleSearch = () => {
     Keyboard.dismiss();
@@ -223,14 +264,12 @@ export default function MainScreen() {
       const coords = REGION_COORDINATES[matchedRegion];
       console.log(`✅ 지역 찾음: ${matchedRegion}`, coords);
       
-      if (mapRef.current && mapRef.current.updateLocation) {
-        mapRef.current.updateLocation({
-          latitude: coords.latitude,
-          longitude: coords.longitude
-        });
+      if (mapRef.current && mapRef.current.moveAndZoom) {
+        mapRef.current.moveAndZoom(coords.latitude, coords.longitude, 13);
         
         Alert.alert('검색 완료', `${matchedRegion} 지역으로 이동합니다.`);
         setSearchText('');
+        setShowRelatedSearches(false);
       }
       return;
     }
@@ -245,16 +284,14 @@ export default function MainScreen() {
       if (matchedShelter) {
         console.log('✅ 대피소 찾음:', matchedShelter.REARE_NM);
         
-        if (mapRef.current && mapRef.current.updateLocation) {
-          mapRef.current.updateLocation({
-            latitude: matchedShelter.latitude,
-            longitude: matchedShelter.longitude
-          });
+        if (mapRef.current && mapRef.current.moveAndZoom) {
+          mapRef.current.moveAndZoom(matchedShelter.latitude, matchedShelter.longitude, 15);
           
           dispatch(actions.setSelectedTab('대피소'));
           
           Alert.alert('검색 완료', `${matchedShelter.REARE_NM}을(를) 찾았습니다.`);
           setSearchText('');
+          setShowRelatedSearches(false);
         }
         return;
       }
@@ -266,31 +303,6 @@ export default function MainScreen() {
       `"${query}"에 대한 검색 결과가 없습니다.\n\n지역명(예: 김해, 부산, 서울)이나 대피소명을 입력해주세요.`
     );
   };
-  // 탭 변경 핸들러
-  const handleTabChange = (tab) => {
-    dispatch(actions.setSelectedTab(tab));
-  };
-
-  // 로그인 성공 핸들러
-  const handleLoginSuccess = async (loginData) => {
-    setShowLoginModal(false);
-    await checkLoginStatus();
-    Alert.alert('로그인 성공', '환영합니다!');
-  };
-
-  // 로그아웃 핸들러
-  const handleLogout = async () => {
-    try {
-      await userService.logout();
-      setIsLoggedIn(false);
-      setUserInfo(null);
-      dispatch(actions.setUserInfo(null));
-      Alert.alert('로그아웃', '로그아웃되었습니다.');
-    } catch (error) {
-      console.error('로그아웃 실패:', error);
-      Alert.alert('오류', '로그아웃 중 오류가 발생했습니다.');
-    }
-  };
 
   // 지도 터치시 키보드 닫기
   const handleKeyboardDismiss = () => {
@@ -300,17 +312,9 @@ export default function MainScreen() {
     }
   };
 
-  useEffect(() => {
-    return () => {
-      if (searchTimeoutRef.current) {
-        clearTimeout(searchTimeoutRef.current);
-      }
-    };
-  }, []);
-
   return (
     <View style={styles.container}>
-      {/* ⭐ 지도 영역 */}
+      {/* 지도 영역 */}
       <View style={styles.mapLayer}>
         <MapContainer
           ref={mapRef}
@@ -322,7 +326,7 @@ export default function MainScreen() {
         />
       </View>
       
-      {/* ⭐ Header는 지도 위에 */}
+      {/* Header는 지도 위에 */}
       <View style={styles.headerLayer}>
         <Header
           theme={theme}
@@ -337,11 +341,11 @@ export default function MainScreen() {
         />
       </View>
 
-      {/* ⭐ BottomSheet (BottomNavigation 포함) */}
+      {/* BottomSheet (BottomNavigation 포함) */}
       <BottomSheet />
       <BottomNavigation /> 
       
-      {/* ⭐ 에러 토스트 */}
+      {/* 에러 토스트 */}
       {error && (
         <ErrorToast
           message={error}
