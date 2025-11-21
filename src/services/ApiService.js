@@ -11,8 +11,10 @@ const cache = {
 export const apiService = {
   async getShelters(bounds) {
     try {
-      console.log('🔄 대피소 API 호출 시작');
+      console.log('📄 대피소 API 호출 시작');
+      console.log('📍 요청 좌표:', bounds);
       
+      // POST 방식이지만 query string으로 파라미터 전달
       const params = new URLSearchParams({
         startLot: bounds.startLot,
         endLot: bounds.endLot,
@@ -23,30 +25,45 @@ export const apiService = {
       const url = `${API_BASE_URL}/shelter_router/get_shelter?${params}`;
       console.log('📡 API URL:', url);
 
-      const response = await fetch(url);
+      // POST 메서드지만 query string 사용
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      });
+      
       console.log('📥 응답 상태:', response.status);
 
       if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
+        const errorText = await response.text();
+        console.error('❌ 서버 에러 응답:', errorText);
+        throw new Error(`HTTP ${response.status}: ${errorText}`);
       }
 
       const text = await response.text();
       console.log('📄 응답 길이:', text.length);
+      console.log('📄 응답 내용 (처음 200자):', text.substring(0, 200));
 
       let data;
       try {
         data = JSON.parse(text);
       } catch (parseError) {
-        console.error('❌ JSON 파싱 실패');
+        console.error('❌ JSON 파싱 실패:', parseError);
+        console.error('받은 텍스트:', text);
         return [];
       }
 
       if (!Array.isArray(data)) {
-        console.warn('⚠️ 응답이 배열이 아님');
+        console.warn('⚠️ 응답이 배열이 아님:', typeof data);
+        console.warn('데이터 내용:', data);
         return [];
       }
 
       console.log(`✅ ${data.length}개 대피소 수신`);
+      if (data.length > 0) {
+        console.log('첫 번째 대피소 샘플:', data[0]);
+      }
       return data;
       
     } catch (error) {
@@ -63,7 +80,7 @@ export const apiService = {
         return cache.news;
       }
 
-      console.log('🔄 뉴스 API 호출');
+      console.log('📄 뉴스 API 호출');
       
       const url = region && region !== '전체'
         ? `${API_BASE_URL}/news_router/get_news?region=${encodeURIComponent(region)}`
