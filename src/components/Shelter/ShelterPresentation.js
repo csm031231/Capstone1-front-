@@ -12,7 +12,8 @@ export default function ShelterPresentation({
   loading,
   error,
   currentLocation,
-  onRefresh
+  onRefresh,
+  mapRef
 }) {
   if (error && shelters.length === 0) {
     return (
@@ -46,6 +47,7 @@ export default function ShelterPresentation({
           onRefresh={onRefresh}
           refreshing={loading}
           currentLocation={currentLocation}
+          mapRef={mapRef}
         />
       )}
     </View>

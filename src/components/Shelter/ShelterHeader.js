@@ -6,18 +6,7 @@ export default function ShelterHeader({ shelterCount, currentLocation }) {
   return (
     <View style={styles.header}>
       <Text style={styles.title}>주변 대피소</Text>
-      <Text style={styles.subtitle}>총 {shelterCount}곳의 대피소</Text>
-      
-      {currentLocation && (
-        <View style={styles.locationInfo}>
-          <Text style={styles.locationText}>
-            📍 현재 위치 기준으로 가까운 순서로 정렬됨
-          </Text>
-          <Text style={styles.coordinatesText}>
-            {currentLocation.latitude?.toFixed(4)}, {currentLocation.longitude?.toFixed(4)}
-          </Text>
-        </View>
-      )}
+      <Text style={styles.subtitle}>총 {shelterCount}곳의 대피소</Text>      
     </View>
   );
 }
@@ -32,12 +21,14 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 20,
+    left: 15,
     fontWeight: 'bold',
     color: '#333',
     marginBottom: 4,
   },
   subtitle: {
     fontSize: 14,
+    left: 15,
     color: '#666',
     marginBottom: 8,
   },

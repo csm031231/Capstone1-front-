@@ -8,7 +8,8 @@ export default function ShelterList({
   shelters, 
   onRefresh, 
   refreshing = false, 
-  currentLocation 
+  currentLocation,
+  mapRef
 }) {
   return (
     <RefreshableScrollView
@@ -23,6 +24,7 @@ export default function ShelterList({
           key={shelter.MNG_SN} 
           shelter={shelter}
           currentLocation={currentLocation}
+          mapRef={mapRef}
         />
       ))}
     </RefreshableScrollView>

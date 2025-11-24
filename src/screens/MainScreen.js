@@ -21,65 +21,23 @@ export default function MainScreen() {
   const [relatedSearches, setRelatedSearches] = useState([]);
   const [showRelatedSearches, setShowRelatedSearches] = useState(false);
   const searchTimeoutRef = React.useRef(null);
-  const mapRef = React.useRef(null);
-  
-  // 지역별 좌표 데이터
-  const REGION_COORDINATES = {
-    '서울': { latitude: 37.5665, longitude: 126.9780 },
-    '부산': { latitude: 35.1796, longitude: 129.0756 },
-    '대구': { latitude: 35.8714, longitude: 128.6014 },
-    '인천': { latitude: 37.4563, longitude: 126.7052 },
-    '광주': { latitude: 35.1595, longitude: 126.8526 },
-    '대전': { latitude: 36.3504, longitude: 127.3845 },
-    '울산': { latitude: 35.5384, longitude: 129.3114 },
-    '세종': { latitude: 36.4800, longitude: 127.2890 },
-    '김해': { latitude: 35.2286, longitude: 128.8892 },
-    '창원': { latitude: 35.2281, longitude: 128.6811 },
-    '진주': { latitude: 35.1800, longitude: 128.1076 },
-    '통영': { latitude: 34.8544, longitude: 128.4331 },
-    '사천': { latitude: 35.0036, longitude: 128.0642 },
-    '밀양': { latitude: 35.5040, longitude: 128.7469 },
-    '거제': { latitude: 34.8808, longitude: 128.6211 },
-    '양산': { latitude: 35.3350, longitude: 129.0372 },
-    '수원': { latitude: 37.2636, longitude: 127.0286 },
-    '성남': { latitude: 37.4201, longitude: 127.1262 },
-    '고양': { latitude: 37.6584, longitude: 126.8320 },
-    '용인': { latitude: 37.2410, longitude: 127.1776 },
-    '춘천': { latitude: 37.8813, longitude: 127.7300 },
-    '강릉': { latitude: 37.7519, longitude: 128.8761 },
-    '청주': { latitude: 36.6424, longitude: 127.4890 },
-    '천안': { latitude: 36.8151, longitude: 127.1139 },
-    '전주': { latitude: 35.8242, longitude: 127.1479 },
-    '목포': { latitude: 34.8118, longitude: 126.3922 },
-    '여수': { latitude: 34.7604, longitude: 127.6622 },
-    '제주': { latitude: 33.4996, longitude: 126.5312 },
-  };
+  const [selectedShelter] = useState(null);
 
-  // viewport 변경시 대피소 데이터 자동 로드
   useEffect(() => {
-    if (currentViewport && selectedTab === '대피소') {
-      loadShelters(currentViewport);
-    }
-  }, [currentViewport, selectedTab]);
+    const loadSheltersAlways = async () => {
+      if (currentViewport) {
+        // 현재 화면 범위의 대피소 로드
+        await loadShelters(currentViewport);
+      } else if (mapRef.current?.getViewportBounds) {
+        // viewport가 없으면 지도로부터 가져옴
+        const bounds = await mapRef.current.getViewportBounds();
+        await loadShelters(bounds);
+      }
+    };
+    
+    loadSheltersAlways();
+  }, [currentViewport]);
   
-  // 탭 변경시 데이터 로드
-  useEffect(() => {
-    switch (selectedTab) {
-      case '재난문자':
-        loadMessages();
-        break;
-      case '뉴스':
-        loadNews();
-        break;
-      case '재난행동요령':
-        loadActions();
-        break;
-      default:
-        break;
-    }
-  }, [selectedTab]);
-
-  // 뉴스는 컴포넌트 마운트 시 한 번만 로드
   useEffect(() => {
     loadNews();
   }, []);
@@ -312,6 +270,21 @@ export default function MainScreen() {
     }
   };
 
+  useEffect(() => {
+    return () => {
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+      }
+    };
+  }, []);
+  
+  // 🆕 4. BottomSheet 닫기 핸들러 정의
+  const handleBottomSheetClose = () => {
+    console.log('🔽 BottomSheet 닫기');
+    if(mapRef.current?.clearRoute) {
+        mapRef.current.clearRoute(); // 닫을 때 지도에 그려진 경로도 지웁니다.
+    }
+  };
   return (
     <View style={styles.container}>
       {/* 지도 영역 */}
@@ -323,6 +296,7 @@ export default function MainScreen() {
           theme={theme}
           shelters={shelters}
           onMapPress={handleKeyboardDismiss}
+          
         />
       </View>
       
@@ -341,8 +315,11 @@ export default function MainScreen() {
         />
       </View>
 
-      {/* BottomSheet (BottomNavigation 포함) */}
-      <BottomSheet />
+      {/* 📍 6. BottomSheet에 필요한 props 전달 */}
+      <BottomSheet 
+        onClose={handleBottomSheetClose} // BottomSheet 닫기 시 호출
+        mapRef={mapRef} // ⬅️ **MapContainer의 Ref 전달 (핵심 수정)**
+      />
       <BottomNavigation /> 
       
       {/* 에러 토스트 */}
