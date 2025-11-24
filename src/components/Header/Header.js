@@ -1,5 +1,5 @@
 // ============================================
-// 📁 src/components/Header/Header.js (완전판)
+// 📁 src/components/Header/Header.js (최종 수정: 터치 가로채기 방지)
 // ============================================
 import React, { useState, useRef, useEffect } from 'react';
 import { 
@@ -221,7 +221,11 @@ const Header = ({
 
     return (
         <>
-            <View style={styles.header}>
+            {/* ✅ 수정: 모달이 떠 있을 때 Header의 터치 이벤트를 무시하도록 설정 */}
+            <View 
+                style={styles.header}
+                pointerEvents={showLoginModal || showMyPage ? "none" : "auto"}
+            >
                 <TouchableOpacity 
                     style={[
                         styles.searchContainer,

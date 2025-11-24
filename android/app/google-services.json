@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "859907470316",
+    "project_id": "difo-c6051",
+    "storage_bucket": "difo-c6051.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:859907470316:android:b98454c6e8fb1222c346c9",
+        "android_client_info": {
+          "package_name": "com.krlc.my_map"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC-C8oy9-hew0YBqIt245TuEKu8_4pneww"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

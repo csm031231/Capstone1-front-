@@ -1,10 +1,16 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { View, StyleSheet, StatusBar } from 'react-native';
 import { AppProvider } from './src/store/AppContext';
 import MainScreen from './src/screens/MainScreen';
 import ErrorBoundary from './src/components/common/ErrorBoundary';
+import { registerForPushNotificationsAsync } from './src/fcm/fcm'; // fcm.js에서 가져오기
 
 export default function App() {
+  useEffect(() => {
+    // 앱 시작 시 FCM 권한 요청 + 토큰 발급
+    registerForPushNotificationsAsync();
+  }, []);
+
   return (
     <ErrorBoundary>
       <AppProvider>

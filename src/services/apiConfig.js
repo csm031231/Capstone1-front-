@@ -14,6 +14,8 @@ const API_BASE_URL = getApiBaseUrl();
 
 const DEFAULT_HEADERS = {
   'Accept': 'application/json',
+  // ✅ 422 오류 해결을 위해 Content-Type 추가
+  'Content-Type': 'application/json', 
 };
 
 // =========================================================================

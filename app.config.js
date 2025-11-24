@@ -33,6 +33,8 @@ export default {
         "ACCESS_COARSE_LOCATION",
         "ACCESS_FINE_LOCATION"
       ],
+      // ✅ 키보드 설정 추가 - 화면을 위로 밀어서 입력창이 보이도록
+      softwareKeyboardLayoutMode: "pan"
     },
     web: {
       favicon: "./assets/favicon.png"
