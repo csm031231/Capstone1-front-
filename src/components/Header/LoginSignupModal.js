@@ -1,7 +1,7 @@
 // ============================================
-// 📝 src/components/Header/LoginSignupModal.js (최종 수정 버전)
+// 📝 src/components/Header/LoginSignupModal.js (터치 및 자동완성 완벽 수정)
 // ============================================
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -15,6 +15,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   Keyboard,
+  Pressable, // ✅ 박스 전체 터치를 위해 추가
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import COLORS from '../../constants/colors';
@@ -30,6 +31,13 @@ const LoginSignupModal = ({ visible, initialMode = 'login', onClose, onLoginSucc
   const [username, setUsername] = useState('');
   const [nickname, setNickname] = useState('');
   const [phone, setPhone] = useState('');
+
+  // ✅ 입력창 포커스 제어를 위한 Ref 생성
+  const emailRef = useRef(null);
+  const passwordRef = useRef(null);
+  const usernameRef = useRef(null);
+  const nicknameRef = useRef(null);
+  const phoneRef = useRef(null);
 
   useEffect(() => {
     if (visible) {
@@ -59,7 +67,7 @@ const LoginSignupModal = ({ visible, initialMode = 'login', onClose, onLoginSucc
     setIsLogin(!isLogin);
     setPassword('');
     setFocusedField(null);
-    Keyboard.dismiss(); // 키보드 닫기
+    Keyboard.dismiss();
   }, [isLogin]);
 
   const handleLogin = async () => {
@@ -71,13 +79,12 @@ const LoginSignupModal = ({ visible, initialMode = 'login', onClose, onLoginSucc
     try {
       setLoading(true);
       const response = await userService.login(email, password);
-      
       resetForm();
       if (onLoginSuccess) {
         onLoginSuccess(response);
       }
-      
     } catch (error) {
+      console.log("로그인 에러 상세:", error);
       Alert.alert('로그인 실패', error.message);
     } finally {
       setLoading(false);
@@ -114,15 +121,13 @@ const LoginSignupModal = ({ visible, initialMode = 'login', onClose, onLoginSucc
       Alert.alert(
         '회원가입 성공', 
         '계정이 성공적으로 생성되었습니다!\n이제 로그인해주세요.', 
-        [
-          {
+        [{
             text: '로그인하기',
             onPress: () => {
               setIsLogin(true);
               setPassword('');
             }
-          }
-        ]
+          }]
       );
     } catch (error) {
       Alert.alert('회원가입 실패', error.message || '회원가입 중 오류가 발생했습니다.');
@@ -146,20 +151,16 @@ const LoginSignupModal = ({ visible, initialMode = 'login', onClose, onLoginSucc
     >
       <KeyboardAvoidingView
         style={styles.container}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'} 
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0} 
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         {/* 헤더 */}
         <View style={styles.header}>
           <View style={styles.headerContent}>
             <Text style={styles.title}>{isLogin ? '로그인' : '회원가입'}</Text>
             <Text style={styles.subtitle}>
-              {isLogin 
-                ? '재난안전 서비스에 로그인하세요' 
-                : '재난안전 서비스에 가입하세요'}
+              {isLogin ? '재난안전 서비스에 로그인하세요' : '재난안전 서비스에 가입하세요'}
             </Text>
           </View>
-          
           <TouchableOpacity onPress={handleClose} style={styles.closeBtn}>
             <Ionicons name="close" size={24} color={COLORS.textSecondary} />
           </TouchableOpacity>
@@ -170,17 +171,22 @@ const LoginSignupModal = ({ visible, initialMode = 'login', onClose, onLoginSucc
           style={styles.form} 
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.formContent}
-          keyboardShouldPersistTaps="always"
-          keyboardDismissMode="none"
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
         >
           {/* 이메일 */}
           <View style={styles.inputGroup}>
-            <View style={[
-              styles.inputContainer,
-              focusedField === 'email' && styles.inputContainerFocused
-            ]}>
+            {/* ✅ Pressable로 감싸서 박스 전체 터치 가능하게 변경 */}
+            <Pressable 
+              style={[
+                styles.inputContainer,
+                focusedField === 'email' && styles.inputContainerFocused
+              ]}
+              onPress={() => emailRef.current?.focus()}
+            >
               <Ionicons name="mail-outline" size={20} color={COLORS.textSecondary} style={styles.inputIcon} />
               <TextInput
+                ref={emailRef} // ✅ ref 연결
                 style={styles.input}
                 value={email}
                 onChangeText={handleEmailChange}
@@ -192,9 +198,14 @@ const LoginSignupModal = ({ visible, initialMode = 'login', onClose, onLoginSucc
                 returnKeyType="next"
                 onFocus={() => setFocusedField('email')}
                 onBlur={() => setFocusedField(null)}
-                // blurOnSubmit={false} 속성 제거
+                onSubmitEditing={() => isLogin ? passwordRef.current?.focus() : usernameRef.current?.focus()}
+                
+                // ✅ 자동완성 방지 속성 (두 개 같이 눌리는 현상 해결)
+                autoComplete="off"
+                importantForAutofill="no" 
+                textContentType="none"
               />
-            </View>
+            </Pressable>
           </View>
 
           {/* 회원가입 추가 필드 */}
@@ -205,17 +216,19 @@ const LoginSignupModal = ({ visible, initialMode = 'login', onClose, onLoginSucc
                 <Text style={styles.signupHeaderText}>추가 정보 입력</Text>
               </View>
 
-              {/* 필수 필드 */}
               <View style={styles.requiredSection}>
                 <Text style={styles.sectionLabel}>필수 정보</Text>
-                
                 <View style={styles.compactInputGroup}>
-                  <View style={[
-                    styles.inputContainer,
-                    focusedField === 'username' && styles.inputContainerFocused
-                  ]}>
+                  <Pressable 
+                    style={[
+                      styles.inputContainer,
+                      focusedField === 'username' && styles.inputContainerFocused
+                    ]}
+                    onPress={() => usernameRef.current?.focus()}
+                  >
                     <Ionicons name="person-outline" size={20} color={COLORS.textSecondary} style={styles.inputIcon} />
                     <TextInput
+                      ref={usernameRef}
                       style={styles.input}
                       value={username}
                       onChangeText={handleUsernameChange}
@@ -226,23 +239,26 @@ const LoginSignupModal = ({ visible, initialMode = 'login', onClose, onLoginSucc
                       returnKeyType="next"
                       onFocus={() => setFocusedField('username')}
                       onBlur={() => setFocusedField(null)}
-                      // blurOnSubmit={false} 속성 제거
+                      onSubmitEditing={() => nicknameRef.current?.focus()}
+                      autoComplete="off"
                     />
-                  </View>
+                  </Pressable>
                 </View>
               </View>
 
-              {/* 선택 필드 */}
               <View style={styles.optionalSection}>
                 <Text style={styles.sectionLabel}>선택 정보</Text>
-                
                 <View style={styles.compactInputGroup}>
-                  <View style={[
-                    styles.inputContainer,
-                    focusedField === 'nickname' && styles.inputContainerFocused
-                  ]}>
+                  <Pressable 
+                    style={[
+                      styles.inputContainer,
+                      focusedField === 'nickname' && styles.inputContainerFocused
+                    ]}
+                    onPress={() => nicknameRef.current?.focus()}
+                  >
                     <Ionicons name="happy-outline" size={20} color={COLORS.textSecondary} style={styles.inputIcon} />
                     <TextInput
+                      ref={nicknameRef}
                       style={styles.input}
                       value={nickname}
                       onChangeText={handleNicknameChange}
@@ -253,18 +269,23 @@ const LoginSignupModal = ({ visible, initialMode = 'login', onClose, onLoginSucc
                       returnKeyType="next"
                       onFocus={() => setFocusedField('nickname')}
                       onBlur={() => setFocusedField(null)}
-                      // blurOnSubmit={false} 속성 제거
+                      onSubmitEditing={() => phoneRef.current?.focus()}
+                      autoComplete="off"
                     />
-                  </View>
+                  </Pressable>
                 </View>
 
                 <View style={[styles.compactInputGroup, { marginBottom: 0 }]}>
-                  <View style={[
-                    styles.inputContainer,
-                    focusedField === 'phone' && styles.inputContainerFocused
-                  ]}>
+                  <Pressable 
+                    style={[
+                      styles.inputContainer,
+                      focusedField === 'phone' && styles.inputContainerFocused
+                    ]}
+                    onPress={() => phoneRef.current?.focus()}
+                  >
                     <Ionicons name="call-outline" size={20} color={COLORS.textSecondary} style={styles.inputIcon} />
                     <TextInput
+                      ref={phoneRef}
                       style={styles.input}
                       value={phone}
                       onChangeText={handlePhoneChange}
@@ -276,9 +297,10 @@ const LoginSignupModal = ({ visible, initialMode = 'login', onClose, onLoginSucc
                       returnKeyType="next"
                       onFocus={() => setFocusedField('phone')}
                       onBlur={() => setFocusedField(null)}
-                      // blurOnSubmit={false} 속성 제거
+                      onSubmitEditing={() => passwordRef.current?.focus()}
+                      autoComplete="off"
                     />
-                  </View>
+                  </Pressable>
                 </View>
               </View>
             </View>
@@ -286,12 +308,16 @@ const LoginSignupModal = ({ visible, initialMode = 'login', onClose, onLoginSucc
 
           {/* 비밀번호 */}
           <View style={styles.inputGroup}>
-            <View style={[
-              styles.inputContainer,
-              focusedField === 'password' && styles.inputContainerFocused
-            ]}>
+            <Pressable 
+              style={[
+                styles.inputContainer,
+                focusedField === 'password' && styles.inputContainerFocused
+              ]}
+              onPress={() => passwordRef.current?.focus()}
+            >
               <Ionicons name="lock-closed-outline" size={20} color={COLORS.textSecondary} style={styles.inputIcon} />
               <TextInput
+                ref={passwordRef}
                 style={styles.input}
                 value={password}
                 onChangeText={handlePasswordChange}
@@ -304,10 +330,14 @@ const LoginSignupModal = ({ visible, initialMode = 'login', onClose, onLoginSucc
                 onFocus={() => setFocusedField('password')}
                 onBlur={() => setFocusedField(null)}
                 onSubmitEditing={isLogin ? handleLogin : handleSignup}
-                // ✅ 마지막 필드이므로, 포커스 문제 해결을 위해 명시적으로 true 설정
-                blurOnSubmit={true} 
+                blurOnSubmit={true}
+                
+                // ✅ 자동완성 및 강력한 비밀번호 추천 끄기
+                autoComplete="off"
+                importantForAutofill="no"
+                textContentType="none"
               />
-            </View>
+            </Pressable>
           </View>
 
           {/* 제출 버튼 */}
@@ -334,7 +364,6 @@ const LoginSignupModal = ({ visible, initialMode = 'login', onClose, onLoginSucc
             )}
           </TouchableOpacity>
 
-          {/* 모드 전환 */}
           <View style={styles.toggleContainer}>
             <Text style={styles.toggleDesc}>
               {isLogin ? '아직 계정이 없으신가요?' : '이미 계정이 있으신가요?'}
@@ -410,6 +439,7 @@ const styles = StyleSheet.create({
   compactInputGroup: {
     marginBottom: 12,
   },
+  // ✅ Pressable로 바뀌어도 스타일은 동일하게 유지
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -439,6 +469,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     paddingVertical: 0,
     paddingHorizontal: 0,
+    height: '100%', // ✅ 높이 100% 필수 유지
   },
   submitBtn: {
     flexDirection: 'row',
