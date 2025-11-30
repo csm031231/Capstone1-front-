@@ -295,287 +295,123 @@ export const apiService = {
   },
 
   // ============================================
-  // 🆕 뉴스 API - 완전 연동 버전
+  // 🆕 뉴스 API - 지역별 조회 전용
   // ============================================
 
   /**
-   * 🔹 외부 API에서 최신 뉴스 가져오기 (실시간 조회, DB 저장 안함)
-   * @param {number} numRows - 가져올 뉴스 개수 (기본값: 10)
-   * @returns {Promise<Array>} 뉴스 배열
-   */
-  async getNewsFromExternalApi(numRows = 10) {
-    try {
-      console.log('📰 외부 API에서 뉴스 조회 시작');
-      
-      const url = `${API_BASE_URL}/news_router/get_news?num_rows=${numRows}`;
-      console.log('📡 API URL:', url);
-
-      const response = await fetchWithTimeout(url, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        }
-      });
-      
-      console.log('📥 응답 상태:', response.status);
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('❌ 서버 에러:', errorText);
-        throw new Error(`HTTP ${response.status}: ${errorText}`);
-      }
-
-      const data = await response.json();
-      
-      // 응답 형식: { totalCount: 100, news: [...] }
-      const newsList = data.news || [];
-      console.log(`✅ ${newsList.length}개 뉴스 수신 (총 ${data.totalCount}개)`);
-      
-      return newsList;
-      
-    } catch (error) {
-      console.error('❌ 외부 뉴스 API 오류:', error);
-      throw error;
-    }
-  },
-
-  /**
-   * 🔹 DB에 저장된 뉴스 전체 조회
-   * @returns {Promise<Array>} DB에 저장된 뉴스 배열
-   */
-  async getAllNewsFromDb() {
-    try {
-      console.log('📰 DB에서 전체 뉴스 조회');
-      
-      const url = `${API_BASE_URL}/news_router/return_news_by_region?region=전체`;
-      console.log('📡 API URL:', url);
-
-      const response = await fetchWithTimeout(url);
-      
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
-      }
-
-      const data = await response.json();
-      
-      // 응답 형식: { region: "전체", count: 10, news: [...] }
-      const newsList = data.news || [];
-      console.log(`✅ DB에서 ${newsList.length}개 뉴스 조회`);
-      
-      return newsList;
-      
-    } catch (error) {
-      console.error('❌ DB 뉴스 조회 오류:', error);
-      throw error;
-    }
-  },
-
-  /**
-   * 🔹 지역별 뉴스 조회 (DB에서)
-   * @param {string} region - 지역명 (예: '김해', '부산', '전체')
-   * @returns {Promise<Array>} 해당 지역 뉴스 배열
+   * 🔹 지역별 뉴스 조회 (DB 연동)
+   * 백엔드의 /return_news_by_region 라우터와 1:1 연결됩니다.
+   * @param {string} region - 조회할 지역명 (예: '서울', '부산')
    */
   async getNewsByRegion(region) {
     try {
-      console.log(`📰 ${region} 지역 뉴스 조회`);
-      
+      if (!region || region === '전체') return [];
+
+      console.log(`📰 DB 지역 뉴스 요청: ${region}`);
       const encodedRegion = encodeURIComponent(region);
+      
+      // 1. 1차 시도: 해당 지역명으로 조회
       const url = `${API_BASE_URL}/news_router/return_news_by_region?region=${encodedRegion}`;
-      console.log('📡 API URL:', url);
-
+      
       const response = await fetchWithTimeout(url);
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
       
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
+      const data = await response.json();
+      
+      // 🚨 [수정 포인트] 여기서 const로 선언된 변수는 값을 못 바꿉니다.
+      // 일단 1차 결과를 받습니다.
+      const initialNews = data.news || [];
+
+      // 데이터가 있으면 바로 반환!
+      if (initialNews.length > 0) {
+        console.log(`✅ ${region} 뉴스 조회 성공: ${initialNews.length}개`);
+        return initialNews;
       }
 
-      const data = await response.json();
-      const newsList = data.news || [];
-      console.log(`✅ ${region} 지역 ${newsList.length}개 뉴스 조회`);
+      // 2. 데이터가 0개면 비상 대책 실행 (Fallback)
+      console.log(`⚠️ '${region}' 데이터 없음 -> '분류 미지정' 데이터에서 검색 시도`);
       
-      return newsList;
+      const fallbackUrl = `${API_BASE_URL}/news_router/return_news_by_region?region=${encodeURIComponent('분류 미지정')}`;
+      const fallbackRes = await fetchWithTimeout(fallbackUrl);
       
+      if (fallbackRes.ok) {
+          const fallbackData = await fallbackRes.json();
+          const unclassifiedNews = fallbackData.news || [];
+          
+          // 🚨 [수정 포인트] newsList에 덮어쓰지 않고 새로운 변수(filteredNews)에 담습니다.
+          const filteredNews = unclassifiedNews.filter(item => {
+              const title = item.YNA_TTL || '';
+              const content = item.YNA_CN || '';
+              return title.includes(region) || content.includes(region);
+          });
+          
+          console.log(`✅ 비상 검색 결과: ${filteredNews.length}개 발견`);
+          return filteredNews;
+      }
+
+      return [];
+
     } catch (error) {
-      console.error(`❌ ${region} 지역 뉴스 조회 오류:`, error);
-      throw error;
+      console.error(`❌ ${region} 뉴스 조회 실패:`, error);
+      return [];
     }
   },
 
   /**
-   * 🔹 외부 API에서 뉴스 가져와서 DB에 일괄 저장
-   * @returns {Promise<Object>} { message, created_count, skipped_count, results }
+   * 📍 [메인용] 내 위치 기반 뉴스 조회
    */
-  async bulkInsertNews() {
+  async getNewsMyLocation(location) {
     try {
-      console.log('💾 뉴스 일괄 저장 시작');
+      // 1. 내 좌표 -> 지역명 변환 (예: '경남')
+      const regionName = utils.detectRegionFromLocation(location);
+      console.log(`📍 내 위치 지역 감지: ${regionName}`);
       
-      const url = `${API_BASE_URL}/news_router/bulk_insert_news`;
+      // 2. 변환된 지역명으로 DB 조회
+      return await this.getNewsByRegion(regionName);
+    } catch (error) {
+      console.error('❌ 내 위치 뉴스 오류:', error);
+      return [];
+    }
+  },
+
+  async getNews(region) {
+    return await this.getNewsByRegion(region);
+  },
+
+  async getDisasterMap() {
+    try {
+      console.log('🗺️ 재난 지도 현황 데이터 조회 시작');
+      
+      // apiConfig에 추가한 경로와 일치시킵니다.
+      const url = `${API_BASE_URL}/message_router/disasters/filter`;
       console.log('📡 API URL:', url);
 
-      const response = await fetchWithTimeout(url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        }
-      }, 30000); // 30초 타임아웃 (저장 작업이 오래 걸릴 수 있음)
-      
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`HTTP ${response.status}: ${errorText}`);
-      }
-
-      const data = await response.json();
-      console.log(`✅ 일괄 저장 완료: 생성 ${data.created_count}개, 스킵 ${data.skipped_count}개`);
-      
-      return data;
-      
-    } catch (error) {
-      console.error('❌ 뉴스 일괄 저장 오류:', error);
-      throw error;
-    }
-  },
-
-  /**
-   * 🔹 개별 뉴스 DB에 저장
-   * @param {Object} newsData - 뉴스 데이터 객체
-   * @returns {Promise<Object>} { news, created, message }
-   */
-  async insertNews(newsData) {
-    try {
-      console.log('💾 개별 뉴스 저장');
-      
-      const url = `${API_BASE_URL}/news_router/insert_newsdb`;
-      
       const response = await fetchWithTimeout(url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(newsData)
+        body: JSON.stringify({})
       });
       
       if (!response.ok) {
         const errorText = await response.text();
+        console.error('❌ 재난 지도 API 오류:', errorText);
         throw new Error(`HTTP ${response.status}: ${errorText}`);
       }
 
       const data = await response.json();
-      console.log(`✅ 뉴스 저장 완료: ${data.message}`);
+      console.log(`✅ 재난 지도 데이터 수신 완료 (총 ${data.total_count}건)`);
       
-      return data;
-      
+      return data; // { regions: [...], total_count: N, ... }
+
     } catch (error) {
-      console.error('❌ 뉴스 저장 오류:', error);
-      throw error;
+      console.error('❌ 재난 지도 데이터 조회 실패:', error);
+      // 실패 시 빈 데이터 구조 반환하여 앱이 죽지 않도록 함
+      return { regions: [], total_count: 0 };
     }
   },
 
-  /**
-   * 🔹 모든 뉴스 삭제
-   * @returns {Promise<Object>} { message, deleted_count }
-   */
-  async deleteAllNews() {
-    try {
-      console.log('🗑️ 모든 뉴스 삭제');
-      
-      const url = `${API_BASE_URL}/news_router/delete_all_news`;
-      
-      const response = await fetchWithTimeout(url, {
-        method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json',
-        }
-      });
-      
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`HTTP ${response.status}: ${errorText}`);
-      }
-
-      const data = await response.json();
-      console.log(`✅ ${data.deleted_count}개 뉴스 삭제 완료`);
-      
-      return data;
-      
-    } catch (error) {
-      console.error('❌ 뉴스 삭제 오류:', error);
-      throw error;
-    }
-  },
-
-  /**
-   * 🔹 외부 API에서 뉴스 가져오기 + DB 저장 + 반환 (통합 함수)
-   * 가장 많이 사용될 함수 - 최신 뉴스를 가져와서 저장하고 반환
-   * @param {number} numRows - 가져올 뉴스 개수
-   * @returns {Promise<Array>} 저장 후 조회된 뉴스 배열
-   */
-  async fetchAndStoreNews(numRows = 10) {
-    try {
-      console.log('🔄 뉴스 가져오기 + 저장 시작');
-      
-      // 1. 외부 API에서 뉴스 가져와서 DB에 저장
-      await this.bulkInsertNews();
-      
-      // 2. DB에서 저장된 뉴스 조회 (최신순)
-      const news = await this.getAllNewsFromDb();
-      
-      console.log(`✅ 통합 작업 완료: ${news.length}개 뉴스`);
-      return news;
-      
-    } catch (error) {
-      console.error('❌ 뉴스 가져오기/저장 오류:', error);
-      throw error;
-    }
-  },
-
-  /**
-   * 🔹 뉴스 조회 (캐시 사용, 하위 호환성 유지)
-   * 기존 코드와의 호환성을 위해 유지
-   * @param {string} region - 지역명 (선택사항)
-   * @returns {Promise<Array>} 뉴스 배열
-   */
-  async getNews(region = null) {
-    try {
-      const now = Date.now();
-      
-      // 캐시 확인
-      if (cache.news && cache.newsTimestamp && (now - cache.newsTimestamp < cache.CACHE_DURATION)) {
-        console.log('📦 캐시된 뉴스 반환');
-        
-        if (region && region !== '전체') {
-          return cache.news.filter(item => item.region === region);
-        }
-        return cache.news;
-      }
-
-      console.log('📄 뉴스 API 호출 (캐시 만료)');
-      
-      // 새 데이터 가져오기 (DB에서)
-      let data;
-      if (region && region !== '전체') {
-        data = await this.getNewsByRegion(region);
-      } else {
-        data = await this.getAllNewsFromDb();
-      }
-      
-      // 캐시 업데이트
-      if (region === null || region === '전체') {
-        cache.news = data;
-        cache.newsTimestamp = now;
-      }
-      
-      console.log(`✅ ${data.length}개 뉴스 수신`);
-      return data;
-      
-    } catch (error) {
-      console.error('❌ 뉴스 API 오류:', error);
-      throw error;
-    }
-  },
-
-  /**
-   * 🔹 캐시 초기화
-   */
   clearCache() {
     cache.news = null;
     cache.newsTimestamp = null;
@@ -628,41 +464,6 @@ export const utils = {
       const mins = minutes % 60;
       return mins > 0 ? `${hours}시간 ${mins}분` : `${hours}시간`;
     }
-  },
-
-  extractRegionFromNews(content) {
-    if (!content) return '분류 미지정';
-    
-    const regions = [
-      { name: '서울', keywords: ['서울', '서울시', '강남', '강북', '종로', '중구', '용산', '성동', '광진', '동대문', '중랑', '성북', '강북', '도봉', '노원', '은평', '서대문', '마포', '양천', '강서', '구로', '금천', '영등포', '동작', '관악', '서초', '강남', '송파', '강동'] },
-      { name: '부산', keywords: ['부산', '부산시', '해운대', '서면', '광안리', '남포동', '중구', '서구', '동구', '영도', '부산진', '동래', '남구', '북구', '강서구', '연제', '수영', '사상', '기장'] },
-      { name: '대구', keywords: ['대구', '대구시', '동성로', '중구', '동구', '서구', '남구', '북구', '수성', '달서', '달성'] },
-      { name: '인천', keywords: ['인천', '인천시', '송도', '영종도', '중구', '동구', '미추홀', '연수', '남동', '부평', '계양', '서구', '강화', '옹진'] },
-      { name: '광주', keywords: ['광주', '광주시', '동구', '서구', '남구', '북구', '광산'] },
-      { name: '대전', keywords: ['대전', '대전시', '동구', '중구', '서구', '유성', '대덕'] },
-      { name: '울산', keywords: ['울산', '울산시', '중구', '남구', '동구', '북구', '울주'] },
-      { name: '세종', keywords: ['세종', '세종시', '세종특별자치시'] },
-      { name: '경기', keywords: ['경기', '경기도', '수원', '성남', '고양', '용인', '부천', '안산', '안양', '남양주', '화성', '평택', '의정부', '시흥', '파주', '김포', '광명', '광주', '군포', '하남', '오산', '양주', '이천', '구리', '안성', '포천', '의왕', '여주', '양평', '동두천', '과천', '가평', '연천'] },
-      { name: '강원', keywords: ['강원', '강원도', '춘천', '원주', '강릉', '동해', '태백', '속초', '삼척', '홍천', '횡성', '영월', '평창', '정선', '철원', '화천', '양구', '인제', '고성', '양양'] },
-      { name: '충북', keywords: ['충북', '충청북도', '청주', '충주', '제천', '보은', '옥천', '영동', '증평', '진천', '괴산', '음성', '단양'] },
-      { name: '충남', keywords: ['충남', '충청남도', '천안', '공주', '보령', '아산', '서산', '논산', '계룡', '당진', '금산', '부여', '서천', '청양', '홍성', '예산', '태안'] },
-      { name: '전북', keywords: ['전북', '전라북도', '전주', '군산', '익산', '정읍', '남원', '김제', '완주', '진안', '무주', '장수', '임실', '순창', '고창', '부안'] },
-      { name: '전남', keywords: ['전남', '전라남도', '목포', '여수', '순천', '나주', '광양', '담양', '곡성', '구례', '고흥', '보성', '화순', '장흥', '강진', '해남', '영암', '무안', '함평', '영광', '장성', '완도', '진도', '신안'] },
-      { name: '경북', keywords: ['경북', '경상북도', '포항', '경주', '김천', '안동', '구미', '영주', '영천', '상주', '문경', '경산', '군위', '의성', '청송', '영양', '영덕', '청도', '고령', '성주', '칠곡', '예천', '봉화', '울진', '울릉'] },
-      { name: '경남', keywords: ['경남', '경상남도', '창원', '진주', '통영', '사천', '김해', '밀양', '거제', '양산', '의령', '함안', '창녕', '고성', '남해', '하동', '산청', '함양', '거창', '합천'] },
-      { name: '제주', keywords: ['제주', '제주도', '제주시', '서귀포'] },
-      { name: '전국', keywords: ['전국', '전체', '대한민국', '한국', '국내'] }
-    ];
-
-    for (const region of regions) {
-      for (const keyword of region.keywords) {
-        if (content.includes(keyword)) {
-          return region.name;
-        }
-      }
-    }
-
-    return '분류 미지정';
   },
 
   detectRegionFromLocation(location) {

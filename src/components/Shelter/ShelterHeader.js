@@ -13,6 +13,7 @@ export default function ShelterHeader({ shelterCount, currentLocation }) {
 
 const styles = StyleSheet.create({
   header: {
+    paddingTop: 5,
     paddingHorizontal: 16,
     paddingVertical: 16,
     borderBottomWidth: 1,
@@ -20,11 +21,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#ffffff',
   },
   title: {
-    fontSize: 20,
-    left: 15,
+    fontSize: 22,
+    left: 13,
     fontWeight: 'bold',
     color: '#333',
-    marginBottom: 4,
+    marginBottom: 2,
   },
   subtitle: {
     fontSize: 14,

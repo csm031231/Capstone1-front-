@@ -200,7 +200,7 @@ class UserService {
       throw error;
     }
   }
-
+  
   // 💡 추가: 사용자 관심지역 목록 조회
   async getInterestRegions() {
     try {
@@ -214,18 +214,35 @@ class UserService {
       throw error;
     }
   }
+  
+  // ----------------------------------------------------
+  // 💡 수정: 관심지역 다중 선택을 위해 함수 분리 및 로직 재구성
+  // ----------------------------------------------------
 
-  // 💡 추가: 관심지역 일괄 추가/갱신 (단일 관심지역 설정을 위해 기존 삭제 후 추가 로직 구현)
-  async updateInterestRegions(regionIds) {
+  // 💡 신규: 모든 관심지역 제거 API 호출
+  async clearInterestRegions() {
     try {
-      // 1. 모든 관심지역 제거
-      await apiRequest(API_ENDPOINTS.REGION.CLEAR, { method: 'DELETE' });
-      
-      // 2. 새로운 지역 일괄 추가
-      if (regionIds.length === 0) {
-        return { success_count: 0, failed_count: 0, already_exists_count: 0, details: [] };
-      }
-      
+      console.log('관심지역 전체 제거 API 요청:', API_ENDPOINTS.REGION.CLEAR);
+      const response = await apiRequest(API_ENDPOINTS.REGION.CLEAR, { 
+        method: 'DELETE' 
+      });
+      // 성공 시 { success: True, message: "...", deleted_count: int } 반환
+      return { success: true, ...response };
+    } catch (error) {
+      console.error('관심지역 전체 제거 실패:', error);
+      // 실패하더라도 에러를 던지지 않고 실패 상태 반환 (UserProflile에서 에러를 처리함)
+      return { success: false, message: error.message || '전체 제거 실패' };
+    }
+  }
+  
+  // 💡 신규: 관심지역 일괄 추가 API 호출
+  async bulkAddInterestRegions(regionIds) {
+    if (!regionIds || regionIds.length === 0) {
+      // 빈 배열이면 API 호출 없이 성공적인 응답 형식 반환
+      return { success_count: 0, failed_count: 0, already_exists_count: 0, details: [] };
+    }
+    
+    try {
       console.log('관심지역 일괄 추가 API 요청:', API_ENDPOINTS.REGION.BULK_ADD);
       const response = await apiRequest(API_ENDPOINTS.REGION.BULK_ADD, {
         method: 'POST',
@@ -240,6 +257,13 @@ class UserService {
       throw error;
     }
   }
+
+  // 💡 삭제: updateInterestRegions 함수는 bulkAddInterestRegions와 clearInterestRegions로 분리되었습니다.
+  /*
+  async updateInterestRegions(regionIds) {
+    // ... 이전 단일 선택 로직 삭제 ...
+  }
+  */
 }
 
 const userService = new UserService();

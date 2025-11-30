@@ -55,7 +55,7 @@ const validateAndFilterLocation = (location) => {
 const initialState = {
   currentLocation: KOREA_DEFAULT_LOCATION,
   currentViewport: null,
-  selectedTab: '재난문자',
+  selectedTab: null,
   searchText: '',
   
   // 데이터

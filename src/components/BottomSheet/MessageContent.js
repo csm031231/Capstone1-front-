@@ -14,9 +14,32 @@ const MessageContent = () => {
   
   // (getRegionName 함수 생략)
   const getRegionName = () => {
+    // 1. 최우선: 사용자 관심 지역 목록 (설정된 경우)
+    if (user?.interestRegions && user.interestRegions.length > 0) {
+        const primaryRegion = user.interestRegions[0].region_name;
+        console.log(`[getRegionName/Content] 1. 관심지역 발견: ${primaryRegion} 사용`);
+        return primaryRegion;
+    }
+    
+    // 💡 디버깅: 관심지역이 로드되지 않았다면, 왜 로드되지 않았는지 로그 확인
+    if (user && !user.interestRegions) {
+        console.log("[getRegionName/Content] 1-a. user는 있지만 interestRegions는 로드 안 됨.");
+    } else if (user?.interestRegions?.length === 0) {
+        console.log("[getRegionName/Content] 1-b. interestRegions가 비어 있음 (관심지역 미설정).");
+    }
+
+    // 2. 차선: currentLocation.favoriteRegion (GPS/현재 위치 기반 지역)
+    // 💡 수정: 관심지역 설정이 없으면, 현재 위치 기반 지역을 사용
     if (currentLocation && currentLocation.favoriteRegion) {
+        console.log(`[getRegionName/Content] 2. 현재 위치 기반 지역 발견: ${currentLocation.favoriteRegion} 사용`);
         return currentLocation.favoriteRegion;
     }
+
+    // 💡 디버깅: 현재 위치 정보도 비어 있다면 로그 확인
+    console.log("[getRegionName/Content] 2-a. currentLocation.favoriteRegion 없음.");
+    
+    // 3. 최종 기본값
+    console.log("[getRegionName/Content] 3. 기본값: 김해시 사용");
     return '김해시';
   }
 
@@ -31,7 +54,7 @@ const MessageContent = () => {
     if (selectedTab === '재난문자') {
       loadMessages();
     }
-  }, [selectedTab, currentLocation]);
+  }, [selectedTab, currentLocation, user]); // user 의존성 추가
 
   const loadMessages = async () => {
     setLoading(true);
@@ -75,7 +98,7 @@ const MessageContent = () => {
     <>
       <ScrollView style={styles.scrollView}>
         <View style={styles.content}>
-          <Text style={styles.title}>🚨 재난문자</Text>
+          <Text style={styles.title}>재난문자</Text>
           <Text style={styles.text}>
             {loading 
                 ? "재난문자를 불러오는 중..." 

@@ -8,14 +8,37 @@ import emergencyMessageService from '../../services/emergencyMessageService';
 // import { setupFCM } from '../../utils/fcmManager'; 
 
 export default function MessageContainer() {
-  const { currentLocation } = useAppState();
+  const { currentLocation, user } = useAppState();
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(true);
 
   const getRegionName = () => {
+    // 1. 최우선: 사용자 관심 지역 목록 (설정된 경우)
+    if (user?.interestRegions && user.interestRegions.length > 0) {
+        const primaryRegion = user.interestRegions[0].region_name;
+        console.log(`[getRegionName/Container] 1. 관심지역 발견: ${primaryRegion} 사용`);
+        return primaryRegion;
+    }
+    
+    // 💡 디버깅: 관심지역이 로드되지 않았다면, 왜 로드되지 않았는지 로그 확인
+    if (user && !user.interestRegions) {
+        console.log("[getRegionName/Container] 1-a. user는 있지만 interestRegions는 로드 안 됨.");
+    } else if (user?.interestRegions?.length === 0) {
+        console.log("[getRegionName/Container] 1-b. interestRegions가 비어 있음 (관심지역 미설정).");
+    }
+
+    // 2. 차선: currentLocation.favoriteRegion (GPS/현재 위치 기반 지역)
+    // 💡 수정: 관심지역 설정이 없으면, 현재 위치 기반 지역을 사용
     if (currentLocation && currentLocation.favoriteRegion) {
+        console.log(`[getRegionName/Container] 2. 현재 위치 기반 지역 발견: ${currentLocation.favoriteRegion} 사용`);
         return currentLocation.favoriteRegion;
     }
+
+    // 💡 디버깅: 현재 위치 정보도 비어 있다면 로그 확인
+    console.log("[getRegionName/Container] 2-a. currentLocation.favoriteRegion 없음.");
+    
+    // 3. 최종 기본값
+    console.log("[getRegionName/Container] 3. 기본값: 김해시 사용");
     return '김해시'; 
   }
 
@@ -39,7 +62,7 @@ export default function MessageContainer() {
   // 2. 기존 재난문자 로드 로직
   useEffect(() => {
     loadMessages();
-  }, [currentLocation]);
+  }, [currentLocation, user]); // 💡 user 의존성 추가
 
   const loadMessages = async () => {
     setLoading(true);
@@ -82,14 +105,14 @@ export default function MessageContainer() {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>🚨 재난문자</Text>
+        <Text style={styles.title}>재난문자</Text>
         <Text style={styles.subtitle}>
           {loading ? '문자를 불러오는 중...' : `총 ${messages.length}건의 재난문자`}
         </Text>
         
         <View style={styles.locationInfo}>
           <Text style={styles.locationText}>
-            📍 현재 위치: {currentLocation?.favoriteRegion || getRegionName()}
+            📍 현재 위치: {getRegionName()}
           </Text>
         </View>
       </View>
