@@ -1,5 +1,5 @@
 // src/services/disasterActionService.js
-import { apiRequest, API_ENDPOINTS } from './apiConfig';
+import { apiRequest, API_ENDPOINTS } from './apiConfig'; // ✅ 상대 경로 수정
 
 class DisasterActionService {
 
