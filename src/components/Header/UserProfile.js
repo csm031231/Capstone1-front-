@@ -1,4 +1,4 @@
-// UserProfile.js (updateUser 에러 로직 제거 및 추적 강화)
+// UserProfile.js (로그아웃 기능 수정)
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -14,12 +14,9 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import COLORS from '../../constants/colors';
 import userService from '../../services/userService';
-// 💡 useAppState 임포트 (전역 상태에서 user 정보만 사용)
 import { useAppState } from '../../store/AppContext'; 
 
-
-const UserProflile = ({ visible, onClose, onLogout }) => {
-  // ✅ 수정: updateUser를 제거하고 필요한 상태만 가져옵니다.
+const UserProfile = ({ visible, onClose, onLogout }) => {
   const { user: globalUser, currentLocation, selectedTab } = useAppState(); 
 
   const [userInfo, setUserInfo] = useState(null);
@@ -32,7 +29,6 @@ const UserProflile = ({ visible, onClose, onLogout }) => {
   
   const [availableProvinces, setAvailableProvinces] = useState([]);
   const [availableCities, setAvailableCities] = useState([]); 
-  // 💡 로컬 상태 유지: 전역 상태 업데이트가 실패할 경우를 대비하여 관심 지역 목록을 로컬에서 관리
   const [userInterestRegions, setUserInterestRegions] = useState([]); 
   
   const [selectedRegions, setSelectedRegions] = useState([]); 
@@ -44,7 +40,7 @@ const UserProflile = ({ visible, onClose, onLogout }) => {
     confirmPassword: '',
   });
 
-  // 💡 사용자 관심지역 로드 함수 (selectedRegions 초기화 로직 강화)
+  // 사용자 관심지역 로드
   const loadUserInterestRegions = async () => {
     try {
       const regionData = await userService.getInterestRegions();
@@ -53,24 +49,19 @@ const UserProflile = ({ visible, onClose, onLogout }) => {
       
       console.log(`[UserProfile] 관심지역 로드 완료. 개수: ${regions.length}`);
       
-      // ✅ 전역 상태 업데이트 로직 제거 (updateUser가 없기 때문)
-      // 대신 MessageContent/Container가 globalUser를 참조하므로,
-      // 메인 앱 로직에서 globalUser.interestRegions를 업데이트해야 합니다.
-      
       if (showRegionModal) {
-          setSelectedRegions(regions.map(r => r.region_id));
+        setSelectedRegions(regions.map(r => r.region_id));
       }
     } catch (error) {
       console.error('사용자 관심지역 로드 실패:', error);
       setUserInterestRegions([]);
       setSelectedRegions([]);
     } finally {
-        setRegionLoading(false); 
+      setRegionLoading(false); 
     }
   };
 
   const loadUserInfo = async () => {
-    // ... (기존 loadUserInfo 로직 유지)
     try {
       setLoading(true);
       let userData = await userService.getUserInfo();
@@ -94,7 +85,6 @@ const UserProflile = ({ visible, onClose, onLogout }) => {
   };
 
   const loadAvailableProvinces = async () => {
-    // ... (기존 loadAvailableProvinces 로직 유지)
     try {
       const provinces = await userService.getProvinces();
       setAvailableProvinces(provinces || []);
@@ -105,7 +95,6 @@ const UserProflile = ({ visible, onClose, onLogout }) => {
     }
   };
   
-  // 💡 모달이 열릴 때/앱 시작 시 사용자 정보 및 관심지역 로드
   useEffect(() => {
     if (visible) {
       loadUserInfo();
@@ -120,13 +109,12 @@ const UserProflile = ({ visible, onClose, onLogout }) => {
       loadAvailableProvinces(); 
       loadUserInterestRegions(); 
     } else {
-        setSelectedRegions([]);
-        setSelectedProvinceId(null);
+      setSelectedRegions([]);
+      setSelectedProvinceId(null);
     }
   }, [showRegionModal]);
   
   const handleSave = async () => {
-    // ... (handleSave 로직 유지)
     try {
       setLoading(true);
 
@@ -141,8 +129,6 @@ const UserProflile = ({ visible, onClose, onLogout }) => {
       setUserInfo(updatedUser);
       setEditing(false);
       Alert.alert('성공', '정보가 성공적으로 업데이트되었습니다.');
-      
-      // ✅ updateUser 함수가 없으므로 전역 상태 업데이트 로직은 제거
 
     } catch (error) {
       console.error('정보 수정 실패:', error);
@@ -153,20 +139,93 @@ const UserProflile = ({ visible, onClose, onLogout }) => {
     }
   };
 
+  // ✅ 로그아웃 함수 구현
   const handleLogout = () => {
-    // ... (handleLogout 로직 유지)
+    Alert.alert(
+      '로그아웃',
+      '정말 로그아웃 하시겠습니까?',
+      [
+        {
+          text: '취소',
+          style: 'cancel'
+        },
+        {
+          text: '로그아웃',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              setLoading(true);
+              
+              // userService의 로그아웃 함수 호출
+              await userService.logout();
+              
+              // 모달 닫기
+              onClose();
+              
+              // 상위 컴포넌트에 로그아웃 알림 (App.js에서 상태 업데이트)
+              if (onLogout) {
+                onLogout();
+              }
+              
+              Alert.alert('로그아웃 완료', '성공적으로 로그아웃되었습니다.');
+              
+            } catch (error) {
+              console.error('로그아웃 실패:', error);
+              Alert.alert('오류', '로그아웃 중 오류가 발생했습니다.');
+            } finally {
+              setLoading(false);
+            }
+          }
+        }
+      ]
+    );
   };
 
   const handleCancelEdit = () => {
-    // ... (handleCancelEdit 로직 유지)
+    setEditData({
+      username: userInfo?.username || '',
+      nickname: userInfo?.nickname || '',
+      phone: userInfo?.phone || '',
+      email: userInfo?.email || '',
+    });
+    setEditing(false);
   };
 
   const handleChangePassword = async () => {
-    // ... (handleChangePassword 로직 유지)
+    const { currentPassword, newPassword, confirmPassword } = passwordData;
+
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      Alert.alert('오류', '모든 필드를 입력해주세요.');
+      return;
+    }
+
+    if (newPassword.length < 6) {
+      Alert.alert('오류', '새 비밀번호는 최소 6자 이상이어야 합니다.');
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      Alert.alert('오류', '새 비밀번호가 일치하지 않습니다.');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      await userService.changePassword(currentPassword, newPassword);
+      
+      Alert.alert('성공', '비밀번호가 성공적으로 변경되었습니다.');
+      setShowPasswordModal(false);
+      setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
+      
+    } catch (error) {
+      console.error('비밀번호 변경 실패:', error);
+      Alert.alert('오류', error.message || '비밀번호 변경 중 오류가 발생했습니다.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleSelectRegion = (regionId) => {
-    // ... (handleSelectRegion 로직 유지)
     setSelectedRegions(prevSelected => {
       if (prevSelected.includes(regionId)) {
         return prevSelected.filter(id => id !== regionId);
@@ -189,15 +248,10 @@ const UserProflile = ({ visible, onClose, onLogout }) => {
       const updateResult = await userService.bulkAddInterestRegions(selectedRegions);
 
       if (updateResult.success_count > 0 || updateResult.already_exists_count > 0) {
-        
-        // 1. 성공적으로 업데이트된 지역 목록을 다시 불러오고 로컬 상태 업데이트
         const updatedRegionData = await userService.getInterestRegions();
         const updatedRegions = updatedRegionData.regions || [];
         
         setUserInterestRegions(updatedRegions);
-        
-        // ✅ 중요: 전역 상태 업데이트가 불가능하므로, 
-        // 모달을 닫아 MessageContent가 다시 로컬 상태를 읽게 유도합니다.
         
         Alert.alert('성공', `관심지역 ${updatedRegions.length}개가 설정되었습니다.`);
         setShowRegionModal(false);
@@ -214,7 +268,6 @@ const UserProflile = ({ visible, onClose, onLogout }) => {
   };
 
   const MenuButton = ({ icon, title, description, onPress, color = COLORS.primary }) => (
-    // ... (MenuButton 컴포넌트 유지)
     <TouchableOpacity style={styles.menuButton} onPress={onPress} activeOpacity={0.7}>
       <View style={[styles.menuButtonIcon, { backgroundColor: `${color}15` }]}>
         <Ionicons name={icon} size={24} color={color} />
@@ -228,7 +281,6 @@ const UserProflile = ({ visible, onClose, onLogout }) => {
   );
 
   const EditField = ({ label, value, onChangeText, placeholder, keyboardType = 'default', icon, secureTextEntry = false }) => (
-    // ... (EditField 컴포넌트 유지)
     <View style={styles.editField}>
       <Text style={styles.editFieldLabel}>{label}</Text>
       <View style={styles.editFieldInputContainer}>
@@ -247,9 +299,7 @@ const UserProflile = ({ visible, onClose, onLogout }) => {
     </View>
   );
   
-  // 💡 메인 화면 표시를 위한 문자열 생성 (로컬 상태 사용)
   const getRegionDisplayText = () => {
-    // ✅ 수정: 전역 상태 대신 로컬 상태(userInterestRegions)를 사용
     const regions = userInterestRegions;
     
     if (!regions || regions.length === 0) {
@@ -260,13 +310,12 @@ const UserProflile = ({ visible, onClose, onLogout }) => {
     return regionNames.join('\n');
   };
   
-  // 💡 수정: 모달 내에서 현재 선택된 지역 목록의 이름 문자열을 반환 (여러 줄 나열)
   const getSelectedRegionNames = () => {
     const allAvailableRegions = availableProvinces; 
     
     const selectedNames = allAvailableRegions
-        .filter(region => selectedRegions.includes(region.id))
-        .map(region => region.name);
+      .filter(region => selectedRegions.includes(region.id))
+      .map(region => region.name);
         
     if (selectedNames.length === 0) return '없음';
     
@@ -384,7 +433,6 @@ const UserProflile = ({ visible, onClose, onLogout }) => {
                       <InfoRow icon="person-outline" label="사용자명" value={userInfo?.username || '미설정'} />
                       <InfoRow icon="happy-outline" label="닉네임" value={userInfo?.nickname || '미설정'} />
                       <InfoRow icon="call-outline" label="전화번호" value={userInfo?.phone || '미설정'} />
-                      {/* 💡 isMultiline={true}로 설정하여 여러 줄 표시 */}
                       <InfoRow 
                         icon="location-outline" 
                         label="관심지역" 
@@ -417,7 +465,6 @@ const UserProflile = ({ visible, onClose, onLogout }) => {
                 <MenuButton
                   icon="location-outline"
                   title="관심지역 설정"
-                  // 메뉴 버튼의 description은 한 줄로 요약하여 표시
                   description={getRegionDisplayText() !== '미설정' ? `현재: ${getRegionDisplayText().split('\n').join(', ')}` : "관심 지역을 설정하세요"}
                   onPress={() => setShowRegionModal(true)}
                   color="#28a745"
@@ -433,7 +480,11 @@ const UserProflile = ({ visible, onClose, onLogout }) => {
 
               {/* 로그아웃 */}
               <View style={styles.section}>
-                <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+                <TouchableOpacity 
+                  style={styles.logoutButton} 
+                  onPress={handleLogout}
+                  disabled={loading}
+                >
                   <Ionicons name="log-out-outline" size={24} color={COLORS.error} />
                   <Text style={styles.logoutText}>로그아웃</Text>
                 </TouchableOpacity>
@@ -444,7 +495,7 @@ const UserProflile = ({ visible, onClose, onLogout }) => {
           )}
         </ScrollView>
 
-        {/* 비밀번호 변경 모달 (생략) */}
+        {/* 비밀번호 변경 모달 */}
         <Modal
           visible={showPasswordModal}
           animationType="slide"
@@ -546,7 +597,6 @@ const UserProflile = ({ visible, onClose, onLogout }) => {
             </View>
 
             <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-              {/* 💡 수정: '선택 중인 관심지역' 카드를 유지하며 선택 상태 반영 */}
               <View style={styles.section}>
                 <View style={styles.profileCard}>
                   <View style={styles.sectionHeader}>
@@ -560,7 +610,6 @@ const UserProflile = ({ visible, onClose, onLogout }) => {
                     </View>
                     <View style={styles.currentRegionInfo}>
                       <Text style={styles.currentRegionLabel}>현재 선택</Text>
-                      {/* 💡 수정: Multiline 스타일 적용 */}
                       <Text style={[styles.currentRegionValue, styles.currentRegionValueMultiline]}>
                         {getSelectedRegionNames()}
                       </Text>
@@ -569,7 +618,6 @@ const UserProflile = ({ visible, onClose, onLogout }) => {
                 </View>
               </View>
 
-              {/* 지역 선택 */}
               <View style={styles.section}>
                 <View style={styles.sectionHeader}>
                   <Ionicons name="list-outline" size={20} color={COLORS.primary} />
@@ -577,25 +625,22 @@ const UserProflile = ({ visible, onClose, onLogout }) => {
                 </View>
 
                 {regionLoading ? (
-                    <View style={styles.loadingContainer}>
-                      <ActivityIndicator size="large" color={COLORS.primary} />
-                      <Text style={styles.loadingText}>지역 목록 불러오는 중...</Text>
-                    </View>
+                  <View style={styles.loadingContainer}>
+                    <ActivityIndicator size="large" color={COLORS.primary} />
+                    <Text style={styles.loadingText}>지역 목록 불러오는 중...</Text>
+                  </View>
                 ) : availableProvinces.length === 0 ? (
-                    <Text style={styles.emptyRegionText}>지역 목록을 불러올 수 없습니다.</Text>
+                  <Text style={styles.emptyRegionText}>지역 목록을 불러올 수 없습니다.</Text>
                 ) : (
-                    // availableProvinces 목록을 사용
-                    availableProvinces.map((region) => {
-                    // isSelected 로직: selectedRegions에 포함되어 있는지 확인
+                  availableProvinces.map((region) => {
                     const isSelected = selectedRegions.includes(region.id);
                     return (
                       <TouchableOpacity
-                        key={region.id} // key를 region.id로 설정
+                        key={region.id}
                         style={[
                           styles.regionSelectItem,
                           isSelected && styles.regionSelectItemSelected
                         ]}
-                        // handleSelectRegion에 region.id 전달 (다중 선택 로직)
                         onPress={() => handleSelectRegion(region.id)}
                         disabled={regionLoading}
                         activeOpacity={0.7}
@@ -632,22 +677,21 @@ const UserProflile = ({ visible, onClose, onLogout }) => {
               <View style={styles.bottomSpacing} />
             </ScrollView>
             
-            {/* 💡 하단 고정 저장 버튼 */}
             <TouchableOpacity 
-                style={[
-                    styles.saveRegionsButton, 
-                    regionLoading || selectedRegions.length === 0 ? styles.saveRegionsButtonDisabled : null
-                ]} 
-                onPress={handleSaveRegions}
-                disabled={regionLoading || selectedRegions.length === 0}
+              style={[
+                styles.saveRegionsButton, 
+                regionLoading || selectedRegions.length === 0 ? styles.saveRegionsButtonDisabled : null
+              ]} 
+              onPress={handleSaveRegions}
+              disabled={regionLoading || selectedRegions.length === 0}
             >
-                {regionLoading ? (
-                    <ActivityIndicator size="small" color="#fff" />
-                ) : (
-                    <Text style={styles.saveRegionsButtonText}>
-                        {selectedRegions.length}개 지역 설정 완료
-                    </Text>
-                )}
+              {regionLoading ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <Text style={styles.saveRegionsButtonText}>
+                  {selectedRegions.length}개 지역 설정 완료
+                </Text>
+              )}
             </TouchableOpacity>
           </View>
         </Modal>
@@ -656,7 +700,6 @@ const UserProflile = ({ visible, onClose, onLogout }) => {
   );
 };
 
-// 💡 수정된 InfoRow 컴포넌트: isMultiline prop에 따라 스타일 분기
 const InfoRow = ({ icon, label, value, isMultiline = false }) => (
   <View style={[styles.detailRow, isMultiline && styles.detailRowMultiline]}>
     <View style={styles.detailLeft}>
@@ -953,4 +996,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default UserProflile;
+export default UserProfile;
