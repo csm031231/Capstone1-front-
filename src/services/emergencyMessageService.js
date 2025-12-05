@@ -63,10 +63,14 @@ class EmergencyMessageService {
           disasterType: item.EMRG_STEP_NM || item.EMRGNCY_STEP_NM || item.DST_SE_NM || ''
         }));
       } 
-      // 데이터가 없는 경우 (랜덤 메시지 호출 제거)
+      // 데이터가 없는 경우 (❌ 목업 메시지 호출 대신 빈 배열 반환)
       else {
-        console.log('재난문자 데이터 없음. 목업 메시지를 반환합니다.');
-        return this.getMockMessages();
+        console.log('재난문자 데이터 없음. 빈 목록을 반환합니다.');
+        return {
+          success: true,
+          totalCount: 0,
+          messages: [] // 빈 배열 반환
+        };
       }
       
       return {
@@ -77,7 +81,12 @@ class EmergencyMessageService {
       
     } catch (error) {
       console.error('재난문자 조회 실패:', error);
-      return this.getMockMessages();
+      // ❌ 오류 발생 시에도 목업 대신 빈 배열 반환
+      return {
+        success: false,
+        totalCount: 0,
+        messages: []
+      };
     }
   }
 
@@ -137,7 +146,9 @@ class EmergencyMessageService {
       return '시간 정보 없음';
     }
   }
-
+  
+  // 💡 getMockMessages 함수는 더 이상 사용되지 않으므로 삭제하거나 유지할 수 있습니다.
+  // 여기서는 안전하게 유지하되, 호출되지 않도록 했습니다.
   getMockMessages() {
     return {
       success: true,

@@ -1,5 +1,5 @@
 // ============================================
-// 📁 src/components/Header/Header.js (최종 수정: 터치 가로채기 방지)
+// 📁 src/components/Header/Header.js (최종 병합본)
 // ============================================
 import React, { useState, useRef, useEffect } from 'react';
 import { 
@@ -25,24 +25,28 @@ const Header = ({
     onSearch, 
     theme = 'white', 
     onThemeChange,
-    relatedSearches = [], 
-    onRelatedSearchClick, 
-    showRelatedSearches = false, 
-    onSearchTextChange 
+    relatedSearches = [], // ⭐ 관련 검색어 목록 (자동완성 기능)
+    onRelatedSearchClick, // ⭐ 관련 검색어 클릭 핸들러 (자동완성 기능)
+    showRelatedSearches = false, // ⭐ 관련 검색어 표시 여부 (자동완성 기능)
+    onSearchTextChange // ⭐ 검색어 입력 시 호출되는 함수 (자동완성 기능)
 }) => {
+    // 1. 메뉴 및 모달 상태
     const [showSideMenu, setShowSideMenu] = useState(false);
     const [showSettingsModal, setShowSettingsModal] = useState(false);
     const [showLoginModal, setShowLoginModal] = useState(false);
     const [showMyPage, setShowMyPage] = useState(false);
     const [modalMode, setModalMode] = useState('login');
+    
+    // 2. 사용자 인증 상태
     const [isLoggedIn, setIsLoggedIn] = useState(false);
     const [userInfo, setUserInfo] = useState(null);
-    const [loading, setLoading] = useState(false);
+    const [loading, setLoading] = useState(false); // 로딩 상태
     
     const searchInputRef = useRef(null); 
 
     const isDarkTheme = theme === 'black';
 
+    // 🎨 테마에 따른 색상 정의
     const searchBg = isDarkTheme ? COLORS.surfaceDark : COLORS.surface;
     const searchBorder = isDarkTheme ? COLORS.primaryDark : COLORS.primary;
     const primaryTextColor = isDarkTheme ? COLORS.textWhite : COLORS.textPrimary;
@@ -50,7 +54,7 @@ const Header = ({
     const menuButtonBg = isDarkTheme ? COLORS.surfaceDark : COLORS.surface;
     const menuButtonIconColor = isDarkTheme ? COLORS.textWhite : COLORS.primary;
 
-    // 🔄 초기 사용자 정보 로드
+    // 🔄 초기 사용자 정보 로드 (마운트 시)
     useEffect(() => {
         loadUserInfo();
     }, []);
@@ -77,6 +81,7 @@ const Header = ({
         }
     };
 
+    // 🚪 로그아웃 처리
     const handleLogout = async () => {
         try {
             setLoading(true);
@@ -92,6 +97,7 @@ const Header = ({
         }
     };
 
+    // ✅ 로그인 성공 처리 (모달 닫고 사용자 정보 다시 로드)
     const handleLoginSuccess = async (loginData) => {
         try {
             setShowLoginModal(false);
@@ -104,6 +110,7 @@ const Header = ({
         }
     };
 
+    // 🛠️ 사이드 메뉴 항목 클릭 처리
     const handleMenuItemPress = (itemId) => {
         if (itemId !== 'settings') {
             setShowSideMenu(false);
@@ -130,6 +137,7 @@ const Header = ({
                 break;
             
             case 'interest-location':
+                // 관심 지역 관련 로직 추가
                 break;
 
             case 'logout':
@@ -141,6 +149,7 @@ const Header = ({
                 break;
             
             case 'help':
+                // 도움말 관련 로직 추가
                 break;
                 
             default:
@@ -158,9 +167,10 @@ const Header = ({
         setShowSettingsModal(false);
     };
     
+    // 🔎 검색어 입력 변경 처리 (자동완성 트리거)
     const handleTextChange = (text) => {
         setSearchText(text);
-        onSearchTextChange && onSearchTextChange(text);
+        onSearchTextChange && onSearchTextChange(text); // 외부에서 관련 검색어 로드
     };
 
     const handleSearchSubmit = () => {
@@ -186,6 +196,7 @@ const Header = ({
         searchInputRef.current?.focus();
     };
 
+    // 윈도우 객체에 검색 입력 필드 blur 함수 등록 (외부 제어를 위함)
     useEffect(() => {
         window.blurSearchInput = () => {
             searchInputRef.current?.blur();
@@ -195,6 +206,7 @@ const Header = ({
         };
     }, []);
 
+    // 💡 관련 검색어 항목 렌더링 함수
     const renderRelatedSearchItem = ({ item }) => (
         <TouchableOpacity
             style={[
@@ -221,11 +233,8 @@ const Header = ({
 
     return (
         <>
-            {/* ✅ 수정: 모달이 떠 있을 때 Header의 터치 이벤트를 무시하도록 설정 */}
-            <View 
-                style={styles.header}
-                pointerEvents={showLoginModal || showMyPage ? "none" : "auto"}
-            >
+            {/* 🔍 헤더 메인 UI */}
+            <View style={styles.header}>
                 <TouchableOpacity 
                     style={[
                         styles.searchContainer,
@@ -240,7 +249,7 @@ const Header = ({
                         placeholder="지역명 또는 대피소 검색"
                         placeholderTextColor={secondaryTextColor}
                         value={searchText}
-                        onChangeText={handleTextChange}
+                        onChangeText={handleTextChange} // 자동완성 트리거
                         onSubmitEditing={handleSearchSubmit}
                         onFocus={handleSearchFocus}
                         returnKeyType="search"
@@ -265,6 +274,7 @@ const Header = ({
                 </TouchableOpacity>
             </View>
 
+            {/* ⭐ 관련 검색어 리스트 (자동완성 드롭다운) */}
             {showRelatedSearches && relatedSearches && relatedSearches.length > 0 && (
                 <View style={[
                     styles.relatedSearchesContainer,
@@ -286,6 +296,7 @@ const Header = ({
                 </View>
             )}
 
+            {/* 🚪 사이드 메뉴 및 모달 */}
             <SideMenu
                 visible={showSideMenu}
                 onClose={() => setShowSideMenu(false)}
@@ -313,7 +324,7 @@ const Header = ({
                 visible={showMyPage}
                 onClose={() => {
                     setShowMyPage(false);
-                    loadUserInfo();
+                    loadUserInfo(); // 마이페이지에서 정보 변경 후 새로고침
                 }}
                 onLogout={handleLogout}
             />
@@ -373,11 +384,12 @@ const styles = StyleSheet.create({
         shadowOpacity: 0.3,
         shadowRadius: 6,
     },
+    // 관련 검색어 컨테이너 스타일
     relatedSearchesContainer: {
         position: 'absolute',
-        top: 76, 
+        top: 76, // header 바로 아래 위치
         left: 16,
-        right: 72, 
+        right: 72, // 메뉴 버튼 공간 제외
         maxHeight: 300, 
         zIndex: 99,
         borderRadius: 12,

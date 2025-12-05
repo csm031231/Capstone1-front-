@@ -1,7 +1,7 @@
 // ============================================
 // 📍 src/components/Map/MapContainer.js (SIDO VERSION)
 // ============================================
-import React, { useState, useRef, useEffect, forwardRef, useImperativeHandle } from 'react';
+import React, { useState, useRef, useEffect, forwardRef, useImperativeHandle, useMemo } from 'react';
 import { View, StyleSheet, TouchableOpacity} from 'react-native';
 import { WebView } from 'react-native-webview';
 import Constants from 'expo-constants';
@@ -12,7 +12,7 @@ import { getDirections } from '../../services/ApiService';
 
 const KIMHAE_DEFAULT = { latitude: 35.233596, longitude: 128.889544 };
 
-const MapContainer = forwardRef(({ currentLocation, onViewportChange, theme = 'white', onMapPress, shelters = [] }, ref) => {
+const MapContainer = forwardRef(({ currentLocation, onViewportChange, theme = 'white', onMapPress, shelters = [], disasters = null }, ref) => {
   const webViewRef = useRef(null);
   const [location, setLocation] = useState(currentLocation || KIMHAE_DEFAULT);
   const [mapReady, setMapReady] = useState(false);
@@ -61,6 +61,11 @@ const MapContainer = forwardRef(({ currentLocation, onViewportChange, theme = 'w
           zoom: newLocation.zoom
         }));
       }
+    },
+
+    hideBoundaries: () => {
+      const script = JSON.stringify({ type: 'hideBoundaries' });
+      webViewRef.current?.postMessage(script);
     },
     
     moveAndZoom: (latitude, longitude, zoom) => {
@@ -139,6 +144,17 @@ const MapContainer = forwardRef(({ currentLocation, onViewportChange, theme = 'w
   }));
 
   useEffect(() => {
+    if (mapReady && webViewRef.current && disasters) {
+      console.log('🚨 재난 데이터 지도 전송:', disasters.total_count, '건');
+      
+      webViewRef.current.postMessage(JSON.stringify({
+        type: 'updateDisasterMap',
+        payload: disasters // 백엔드에서 받은 전체 데이터 (regions, total_count 등)
+      }));
+    }
+  }, [disasters, mapReady]);
+  
+  useEffect(() => {
     if (currentLocation) {
       if (userInitiatedMove.current) {
         console.log('⏸️ 사용자 이동 중 - currentLocation 업데이트 무시');
@@ -161,12 +177,6 @@ const MapContainer = forwardRef(({ currentLocation, onViewportChange, theme = 'w
  // ✅ shelters가 변경될 때마다 지도에 전송 (항상)
  useEffect(() => {
   if (mapReady && webViewRef.current && shelters !== undefined) {
-    
-    // 🚨 이 로그를 추가하세요!
-    console.log('--- 🗺️ MapContainer가 WebView로 실제 전송하는 데이터 ---');
-    console.log(JSON.stringify(shelters, null, 2));
-    // 🚨 여기까지
-    
     console.log('🏠 대피소 데이터를 지도에 전송:', shelters.length, '개');
     webViewRef.current.postMessage(JSON.stringify({
       type: 'updateShelters',
@@ -315,7 +325,9 @@ const MapContainer = forwardRef(({ currentLocation, onViewportChange, theme = 'w
   };
 
   // sido 데이터를 포함하여 HTML 생성
-  const mapHTML = getMapHTML(getNaverMapClientId(), location, true, theme, sidoData);
+  const mapHTML = useMemo(() => {
+    return getMapHTML(getNaverMapClientId(), location, true, theme, sidoData);
+  }, []);
 
   return (
      <View style={styles.container}>
@@ -415,4 +427,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default MapContainer;
+export default React.memo(MapContainer);

@@ -3,7 +3,7 @@
 const getApiBaseUrl = () => {
   if (typeof __DEV__ !== 'undefined' && __DEV__) {
     // 개발 환경 API URL
-    return 'http://172.20.10.5:8000'; 
+    return 'http://192.168.0.13:8000'; 
   } else {
     // 운영 환경 API URL
     return 'https://your-production-domain.com';
@@ -14,8 +14,7 @@ const API_BASE_URL = getApiBaseUrl();
 
 const DEFAULT_HEADERS = {
   'Accept': 'application/json',
-  // ✅ 422 오류 해결을 위해 Content-Type 추가
-  'Content-Type': 'application/json', 
+  'Content-Type': 'application/json',
 };
 
 // =========================================================================
@@ -207,6 +206,11 @@ export const API_ENDPOINTS = {
     DELETE: '/users/delete',
   },
   
+  MAP: {
+    COORDINATES: '/map/coordinates', // naver_map_router.py의 prefix(/map) + path(/coordinates)
+    DIRECTIONS: '/directions/directions',
+  },
+  
   REGION: { // 💡 새 섹션 추가
     ALL: '/users/regions/list',
     SEARCH: '/users/regions/search',
@@ -222,6 +226,7 @@ export const API_ENDPOINTS = {
     RANDOM: '/message_router/get_random_emergency_message', 
     DETAIL: '/message_router/message',
     REGIONS: '/message_router/regions',
+    DISASTER_MAP: '/message_router/disaster_map',
   },
   
   ACTION: {
