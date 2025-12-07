@@ -3,7 +3,7 @@
 const getApiBaseUrl = () => {
   if (typeof __DEV__ !== 'undefined' && __DEV__) {
     // 개발 환경 API URL
-    return 'http://192.168.0.16:8000'; 
+    return 'http://192.168.0.13:8000'; 
   } else {
     // 운영 환경 API URL
     return 'https://your-production-domain.com';
@@ -204,6 +204,11 @@ export const API_ENDPOINTS = {
     UPDATE_ME: '/users/me',
     CHANGE_PASSWORD: '/users/me/password', // 💡 /users/change-password에서 수정
     DELETE: '/users/delete',
+  },
+  
+  MAP: {
+    COORDINATES: '/map/coordinates', // naver_map_router.py의 prefix(/map) + path(/coordinates)
+    DIRECTIONS: '/directions/directions',
   },
   
   REGION: { // 💡 새 섹션 추가

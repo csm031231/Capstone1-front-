@@ -1,7 +1,4 @@
-// ============================================
-// 🗺️ src/components/Map/mapTemplate.js (SIDO POLYGON VERSION)
-// 네이버 지도 HTML 템플릿 - 시도 경계선 폴리곤 추가
-// ============================================
+import { DISASTER_IMAGES } from '../../assets/icons/disasterIcons';
 
 export const getMapHTML = (clientId, location, showShelters, theme, sidoData) => `
   <!DOCTYPE html>
@@ -15,8 +12,8 @@ export const getMapHTML = (clientId, location, showShelters, theme, sidoData) =>
           ${getMapStyles()}
       </style>
       <script type="text/javascript">
-          // Sido GeoJSON 데이터를 전역 변수로 설정
           window.SIDO_GEOJSON = ${JSON.stringify(sidoData)};
+          window.DISASTER_IMG_DATA = ${JSON.stringify(DISASTER_IMAGES)};
       </script>
   </head>
   <body>
@@ -305,55 +302,6 @@ const getMapStyles = () => `
   `;
 
 const getMapScript = (location, showShelters, theme) => `
-  // ----------------------------------------------------
-  // 🚨 여기부터 추가: WebView 로그를 React Native로 리디렉션
-  // ----------------------------------------------------
-  function setupConsoleRedirect() {
-      const originalLog = console.log;
-      const originalWarn = console.warn;
-      const originalError = console.error;
-
-      function sendLogToRN(type, args) {
-          try {
-              // 객체나 배열을 JSON 문자열로 변환
-              const processedArgs = Array.from(args).map(arg => {
-                  if (typeof arg === 'object' && arg !== null) {
-                      try {
-                          return JSON.stringify(arg);
-                      } catch (e) {
-                          return '[Circular Object]';
-                      }
-                  }
-                  return String(arg);
-              });
-
-              window.ReactNativeWebView.postMessage(JSON.stringify({
-                  type: 'webview_log',
-                  level: type,
-                  data: processedArgs.join(' ') // 모든 인자를 하나의 문자열로 합침
-              }));
-          } catch (error) {
-              // 이 함수 자체가 실패할 경우를 대비
-              originalError.call(console, 'Failed to send log to RN:', error);
-          }
-      }
-
-      console.log = function() {
-          originalLog.apply(console, arguments); // 원래 WebView 콘솔에도 로그 남김
-          sendLogToRN('log', arguments);        // React Native로 로그 전송
-      };
-      
-      console.warn = function() {
-          originalWarn.apply(console, arguments);
-          sendLogToRN('warn', arguments);
-      };
-      
-      console.error = function() {
-          originalError.apply(console, arguments);
-          sendLogToRN('error', arguments);
-      };
-  }
-  setupConsoleRedirect();
   const MIN_ZOOM_FOR_MARKERS = 12;
   let map;
   let currentMarker;
@@ -512,22 +460,21 @@ const getMapScript = (location, showShelters, theme) => `
       }
   }
   
-  // 폴리곤 중심점 계산
+  // 📍 폴리곤의 중심점(Centroid) 계산 함수
   function calculatePolygonCenter(paths) {
       try {
           let totalLat = 0;
           let totalLng = 0;
           let count = 0;
           
-          // 첫 번째 path만 사용 (외곽선)
-          const firstPath = Array.isArray(paths[0]) ? paths[0] : paths;
+          // 네이버 지도 폴리곤 경로는 배열의 배열 형태일 수 있음
+          // 첫 번째 링(외곽선)만 사용하여 중심 계산
+          const ring = paths.getAt(0); 
           
-          firstPath.forEach(point => {
-              if (point.lat && point.lng) {
-                  totalLat += point.lat();
-                  totalLng += point.lng();
-                  count++;
-              }
+          ring.forEach(point => {
+              totalLat += point.lat();
+              totalLng += point.lng();
+              count++;
           });
           
           if (count === 0) return null;
@@ -538,13 +485,56 @@ const getMapScript = (location, showShelters, theme) => `
           return null;
       }
   }
-    
+
+  function getDisasterIconHtml(type) {
+      const safeType = type || '';
+
+      const imgData = window.DISASTER_IMG_DATA || {};
+      let imageUrl = imgData['기본'];
+
+      if (safeType.includes('화재')) imageUrl = imgData['화재'];
+      else if (safeType.includes('산불'))imageUrl = imgData['산불'];
+      else if (safeType.includes('지진')) imageUrl = imgData['지진'];
+      else if (safeType.includes('태풍')) imageUrl = imgData['태풍'];
+      else if (safeType.includes('호우') || safeType.includes('홍수') || safeType.includes('비')||safeType.includes('침수')) imageUrl = imgData['비'];
+      else if (safeType.includes('대설') || safeType.includes('눈')||safeType.includes('폭설')) imageUrl = imgData['눈'];
+      else if (safeType.includes('폭염')) imageUrl = imgData['폭염'];
+      else if (safeType.includes('한파')) imageUrl = imgData['한파'];
+      else if (safeType.includes('미세먼지') || safeType.includes('황사'))imageUrl = imgData['황사'];
+      else if (safeType.includes('교통')||safeType.includes('열차')||safeType.includes('철도')||safeType.includes('지하철')) imageUrl = imgData['교통'];
+      else if (safeType.includes('테러') || safeType.includes('민방위')||safeType.includes('공습')) imageUrl = imgData['테러'];
+      else if (safeType.includes('안개'))imageUrl = imgData['안개'];
+      else if (safeType.includes('가뭄'))imageUrl = imgData['가뭄'];
+      else if (safeType.includes('기타')||safeType.includes('안전')||safeType.includes('실종'))imageUrl = imgData['기타'];
+
+      return \`
+        <div class="disaster-pin" style="
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+        ">
+            <img src="\${imageUrl}" 
+                 style="
+                    width: 16px; 
+                    height: 16px; 
+                    object-fit: contain; 
+                    filter: grayscale(100%) brightness(20%) contrast(150%);
+                  
+                  /* 투명도 제거 (완전 불투명하게) */
+                  opacity: 1.0;
+                 " 
+            />
+        </div>
+    \`;
+  }
+
   function getDisasterColor(type) {
     const safeType = type || '';
     
     // 🟣 0. 교통/수송 - [선명한 보라색]
     // 눈에 잘 띄면서 다른 경고색과 겹치지 않음
-    if (safeType.includes('교통') || safeType.includes('열차') || safeType.includes('철도') || safeType.includes('지하철')) return '#9400D3'; // DarkViolet
+    if (safeType.includes('교통') || safeType.includes('열차') || safeType.includes('철도') || safeType.includes('지하철')) return '#9400D3'; 
 
     // 🔴 1. 긴급/위험 (생명 직결)
     // 지진/해일: [진한 크림슨 레드] - 가장 위급함
@@ -613,6 +603,12 @@ const getMapScript = (location, showShelters, theme) => `
               zIndex: 10
           });
           p.disasterInfo = null;
+
+          // 🗑️ 기존에 생성된 재난 마커가 있다면 제거
+          if (p.disasterMarker) {
+              p.disasterMarker.setMap(null);
+              p.disasterMarker = null;
+          }
       });
 
       if (!dataToUse) return; // 사용할 데이터가 아예 없으면 리셋 상태 유지
@@ -678,6 +674,24 @@ const getMapScript = (location, showShelters, theme) => `
                           zIndex: 100
                       });
                       polygon.disasterInfo = latestDisaster;
+
+                      const center = calculatePolygonCenter(polygon.getPaths());
+                      
+                      if (center) {
+                          const iconHtml = getDisasterIconHtml(latestDisaster.disaster_type);
+                          
+                          // 마커 생성 및 폴리곤 객체에 저장 (나중에 지우기 위해)
+                          polygon.disasterMarker = new naver.maps.Marker({
+                              position: center,
+                              map: map,
+                              icon: {
+                                  content: iconHtml,
+                                  anchor: new naver.maps.Point(8, 8) // 중심점 조정
+                              },
+                              clickable: false, // 클릭 시 폴리곤 이벤트가 발생하도록 패스
+                              zIndex: 100 // 폴리곤 위에 표시
+                          });
+                      }
                   }
               });
           }
@@ -691,6 +705,9 @@ const getMapScript = (location, showShelters, theme) => `
       
       sidoPolygons.forEach(polygon => {
           polygon.setMap(showSidoBoundaries ? map : null);
+          if (polygon.disasterMarker) {
+              polygon.disasterMarker.setMap(showSidoBoundaries ? map : null);
+          }
       });
       
       sidoLabels.forEach(label => {
@@ -985,13 +1002,10 @@ const getMapScript = (location, showShelters, theme) => `
                 isMarkerCurrentlySelected = true;
                 infoWindow.open(map, marker);
                 
-                map.panTo(location);
+                const targetZoom = Math.max(map.getZoom(), 16); 
                 
-                setTimeout(() => {
-                    if (map.getZoom() < 15) {
-                        map.setZoom(15, true);
-                    }
-                }, 300);
+                // morph: 부드럽게 변형(이동+줌)하는 네이버 지도 전용 함수
+                map.morph(location, targetZoom);
                 
                 window.ReactNativeWebView.postMessage(JSON.stringify({
                     type: 'user_interaction_start'
@@ -1314,9 +1328,6 @@ const getMapScript = (location, showShelters, theme) => `
             // 1. 경로 좌표 추가
             routeCoords.forEach(coord => bounds.extend(coord));
             
-            // 2. 대피소 마커 좌표 추가
-            // shelterMarkers는 MapContainer에서 updateShelters 메시지를 통해
-            // WebView로 전달된 전역 변수(또는 전역적으로 접근 가능한 상태)라고 가정합니다.
             shelterMarkers.forEach(markerItem => {
                 bounds.extend(markerItem.marker.getPosition());
             });
@@ -1378,6 +1389,33 @@ const getMapScript = (location, showShelters, theme) => `
       }
   }
 
+  function hideBoundaries() {
+    if (!showSidoBoundaries) return; // 이미 꺼져있으면 패스
+
+    console.log('🔍 검색 동작으로 인해 경계선 및 아이콘 숨김');
+    showSidoBoundaries = false;
+
+    // 폴리곤과 재난 마커 숨기기
+    sidoPolygons.forEach(polygon => {
+        polygon.setMap(null);
+        if (polygon.disasterMarker) {
+            polygon.disasterMarker.setMap(null);
+        }
+    });
+
+    // 라벨 숨기기
+    sidoLabels.forEach(label => {
+        label.setMap(null);
+    });
+
+    // 버튼 UI도 'OFF' 상태로 변경
+    const button = document.getElementById('boundary-toggle-btn');
+    if (button) {
+        button.classList.remove('active');
+        button.textContent = '경계선 OFF';
+    }
+  }
+
   function handleMessage(data) {
       try {
           const message = JSON.parse(data);
@@ -1424,6 +1462,9 @@ const getMapScript = (location, showShelters, theme) => `
                   break;
               case 'updateDisasterMap':
                   updateDisasterStatus(message.payload);
+                  break;
+              case 'hideBoundaries':
+                  hideBoundaries();
                   break;
           }
       } catch (error) {

@@ -1,10 +1,13 @@
 // src/components/News/NewsItem.js
-import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { utils } from '../../services/ApiService';
 import COLORS from '../../constants/colors';
 
-export default function NewsItem({ news, onPress }) {
+export default function NewsItem({ news, onPress, index, onToggle }) {
+
+  const [expanded, setExpanded] = useState(false);
+
   const getRegionColor = (region) => {
     const colors = {
       '김해': '#4caf50',
@@ -21,12 +24,27 @@ export default function NewsItem({ news, onPress }) {
 
   // 썸네일 설정
   const thumbnailColor = getRegionColor(news.region);
-  const hasImage = news.image_url; // API에서 이미지 URL 제공시
+
+  const handlePress = () => {
+    // 부드러운 애니메이션 적용
+    console.log('📰 [뉴스 데이터 확인]');
+    console.log('제목:', news.YNA_TTL);
+    console.log('내용:', news.YNA_CN);
+    const nextState = !expanded;
+    setExpanded(!expanded);
+    
+    // 만약 부모 컴포넌트에서 별도의 onPress를 전달했다면 실행 (현재는 없음)
+    if (nextState === false && onToggle) {
+      onToggle(index); 
+    }
+
+    if (onPress) onPress(news);
+  };
 
   return (
     <TouchableOpacity 
       style={styles.container}
-      onPress={() => onPress && onPress(news)}
+      onPress={handlePress}
       activeOpacity={0.7}
     >
       <View style={styles.contentArea}>
@@ -39,22 +57,34 @@ export default function NewsItem({ news, onPress }) {
             <Text style={styles.date}>{utils.formatDate(news.YNA_YMD)}</Text>
           </View>
 
-          <Text style={styles.title} numberOfLines={2}>
+          {/* 제목: 펼쳐지면 전체 보임, 닫히면 2줄 제한 */}
+          <Text 
+            style={styles.title} 
+            numberOfLines={expanded ? undefined : 2}
+          >
             {news.YNA_TTL}
           </Text>
 
-          <Text style={styles.content} numberOfLines={2}>
+          {/* 본문: 펼쳐지면 전체 보임, 닫히면 2줄 제한 */}
+          <Text 
+            style={styles.content} 
+            numberOfLines={expanded ? undefined : 2}
+          >
             {news.YNA_CN}
           </Text>
 
-          {news.YNA_WRTR_NM && (
-            <View style={styles.authorContainer}>
-              <Text style={styles.author}>{news.YNA_WRTR_NM}</Text>
-            </View>
-          )}
+          {/* 작성자 및 더보기 표시 */}
+          <View style={styles.footerRow}>
+              {news.YNA_WRTR_NM ? (
+                <Text style={styles.author}>{news.YNA_WRTR_NM}</Text>
+              ) : (
+                <View /> 
+              )}
+              <Text style={styles.expandText}>
+                  {expanded ? '접기 ▲' : '더보기 ▼'}
+              </Text>
+          </View>
         </View>
-
-        
       </View>
     </TouchableOpacity>
   );
@@ -80,8 +110,6 @@ const styles = StyleSheet.create({
   },
   textArea: {
     flex: 1,
-    marginRight: 16,
-    justifyContent: 'space-between',
   },
   metaRow: {
     flexDirection: 'row',
@@ -120,6 +148,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
+  footerRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between', // 작성자와 더보기 버튼 양끝 배치
+    alignItems: 'center',
+    marginTop: 4,
+  },
   author: {
     fontSize: 12,
     color: COLORS.textLight,
@@ -139,6 +173,7 @@ const styles = StyleSheet.create({
   },
   thumbnailIcon: {
     fontSize: 32,
+    color: COLORS.primary,
     opacity: 0.7,
   },
 });

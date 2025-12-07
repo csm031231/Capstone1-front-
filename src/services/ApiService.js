@@ -1,6 +1,5 @@
-// src/services/ApiService.js - 전국 서비스 버전 (좌표 문제 자동 해결 + 뉴스 완전 연동)
 
-const API_BASE_URL = 'http://192.168.0.16:8000';
+const API_BASE_URL = 'http://192.168.0.13:8000';
 
 const cache = {
   news: null,
@@ -223,74 +222,116 @@ export const apiService = {
       
       console.log(`✅ 좌표 검증 완료: ${validData.length}/${beforeCount}개 유효`);
       
-      if (validData.length === 0) {
+      const uniqueShelters = [];
+      const seenNames = new Set();
+
+      validData.forEach(item => {
+        // 중복 판단 기준: "대피소 이름" (REARE_NM)
+        // 만약 이름이 없으면 주소(RONA_DADDR)를 기준으로 함
+        const uniqueKey = (item.REARE_NM || item.RONA_DADDR || '').trim();
+
+        if (uniqueKey && !seenNames.has(uniqueKey)) {
+          seenNames.add(uniqueKey);
+          uniqueShelters.push(item);
+        } else {
+          // 중복된 데이터 로그 확인 (필요시 주석 해제)
+          // console.log('🧹 중복 제거됨:', item.REARE_NM);
+        }
+      });
+
+      console.log(`📉 중복 제거 후 데이터: ${validData.length}개 -> ${uniqueShelters.length}개`);
+      
+      // 이제 validData 대신 uniqueShelters를 사용합니다.
+      const finalData = uniqueShelters;
+
+      if (finalData.length === 0) {
         console.warn('⚠️ 유효한 대피소가 없습니다!');
         return [];
       }
       
-      // ✅ 현재 위치가 있으면 거리 계산
+      // ✅ 현재 위치가 있으면 거리 계산 (finalData 사용)
       if (currentLocation && currentLocation.latitude && currentLocation.longitude) {
-        console.log('📍 현재 위치:', currentLocation);
-        
-        validData.forEach((shelter, index) => {
-          const distance = utils.calculateDistance(
-            currentLocation.latitude,
-            currentLocation.longitude,
-            shelter.latitude,
-            shelter.longitude
-          );
-          shelter.distance = distance;
-          
-          // 처음 3개만 로그
-          if (index < 3) {
-            console.log(`  거리 계산[${index}] ${shelter.REARE_NM}: ${utils.formatDistance(distance)}`);
-          }
+        // ... (거리 계산 로직 동일, 대상만 validData -> finalData로 변경)
+        finalData.forEach((shelter, index) => {
+             // ... 거리 계산 코드 ...
+             const distance = utils.calculateDistance(
+                currentLocation.latitude,
+                currentLocation.longitude,
+                shelter.latitude,
+                shelter.longitude
+              );
+              shelter.distance = distance;
         });
         
         // 거리순 정렬
-        validData.sort((a, b) => a.distance - b.distance);
-        console.log('✅ 거리순 정렬 완료');
-      } else {
-        console.log('⚠️ 현재 위치 없음 - 거리 계산 생략');
+        finalData.sort((a, b) => a.distance - b.distance);
       }
       
-      if (validData.length > 0) {
-        // 1번째 데이터 로그 (항상 실행)
-        console.log('✅ [1번째 대피소 샘플]:', {
-          name: validData[0].REARE_NM,
-          lat: validData[0].latitude,
-          lng: validData[0].longitude,
-          distance: validData[0].distance
-        });
-      
-        // 2번째 데이터가 있는지 확인하고 로그
-        if (validData.length > 1) {
-          console.log('✅ [2번째 대피소 샘플]:', {
-            name: validData[1].REARE_NM,
-            lat: validData[1].latitude,
-            lng: validData[1].longitude,
-            distance: validData[1].distance
-          });
-        }
-      
-        // 3번째 데이터가 있는지 확인하고 로그
-        if (validData.length > 2) {
-          console.log('✅ [3번째 대피소 샘플]:', {
-            name: validData[2].REARE_NM,
-            lat: validData[2].latitude,
-            lng: validData[2].longitude,
-            distance: validData[2].distance
-          });
-        }
-      } else {
-        console.log('⚠️ 유효한 좌표를 가진 대피소 데이터가 없습니다.');
-      }
-      
-      return validData;
+      return finalData;
       
     } catch (error) {
       console.error('❌ 대피소 API 오류:', error);
       throw error;
+    }
+  },
+
+  async searchAddress(query) {
+    try {
+      if (!query || !query.trim()) {
+        throw new Error('검색어를 입력해주세요');
+      }
+
+      console.log(`🔍 주소 검색 요청: ${query}`);
+      const encodedQuery = encodeURIComponent(query);
+
+      // 방법 1: apiRequest 헬퍼 사용 (추천)
+      // const data = await apiRequest(`${API_ENDPOINTS.MAP.COORDINATES}?address=${encodedQuery}`);
+
+      // 방법 2: 직접 fetch 사용 (현재 파일 스타일 유지)
+      const url = `${API_BASE_URL}/map/coordinates?address=${encodedQuery}`;
+      const response = await fetchWithTimeout(url);
+      const data = await response.json();
+
+      // 백엔드 응답 구조(naver_map_router.py)에 따른 처리
+      // 성공 시: { success: true, latitude: ..., longitude: ..., address: ... }
+      if (data.success) {
+        console.log('✅ 검색 성공:', data.address);
+        
+        // 여러 결과가 있는 경우 (백엔드 로직에 따라 다름)
+        if (data.multiple_results) {
+             return {
+                 isSuccess: true,
+                 data: data.results, // 결과 리스트
+                 recommended: data.recommended, // 추천 결과
+                 type: 'multiple'
+             };
+        }
+
+        // 단일 결과
+        return {
+          isSuccess: true,
+          latitude: parseFloat(data.latitude),
+          longitude: parseFloat(data.longitude),
+          address: data.address,
+          title: data.title || query,
+          type: 'single'
+        };
+      } else {
+        // 실패 시
+        console.warn('❌ 검색 결과 없음:', data.error);
+        return {
+          isSuccess: false,
+          message: data.error || '검색 결과가 없습니다.'
+        };
+      }
+
+    } catch (error) {
+      console.error('❌ 주소 검색 API 오류:', error);
+      // 에러를 던지지 않고 실패 객체를 반환하여 UI에서 처리
+      return {
+        isSuccess: false,
+        message: '검색 중 오류가 발생했습니다.'
+      };
     }
   },
 

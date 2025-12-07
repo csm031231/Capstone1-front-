@@ -62,6 +62,11 @@ const MapContainer = forwardRef(({ currentLocation, onViewportChange, theme = 'w
         }));
       }
     },
+
+    hideBoundaries: () => {
+      const script = JSON.stringify({ type: 'hideBoundaries' });
+      webViewRef.current?.postMessage(script);
+    },
     
     moveAndZoom: (latitude, longitude, zoom) => {
       console.log('🗺️ moveAndZoom 호출:', { latitude, longitude, zoom });
@@ -172,12 +177,6 @@ const MapContainer = forwardRef(({ currentLocation, onViewportChange, theme = 'w
  // ✅ shelters가 변경될 때마다 지도에 전송 (항상)
  useEffect(() => {
   if (mapReady && webViewRef.current && shelters !== undefined) {
-    
-    // 🚨 이 로그를 추가하세요!
-    console.log('--- 🗺️ MapContainer가 WebView로 실제 전송하는 데이터 ---');
-    console.log(JSON.stringify(shelters, null, 2));
-    // 🚨 여기까지
-    
     console.log('🏠 대피소 데이터를 지도에 전송:', shelters.length, '개');
     webViewRef.current.postMessage(JSON.stringify({
       type: 'updateShelters',
@@ -428,4 +427,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default MapContainer;
+export default React.memo(MapContainer);
