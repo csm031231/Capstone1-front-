@@ -3,7 +3,7 @@
 const getApiBaseUrl = () => {
   if (typeof __DEV__ !== 'undefined' && __DEV__) {
     // 개발 환경 API URL
-    return 'http://192.168.0.13:8000'; 
+    return 'http://192.168.0.3:8000'; 
   } else {
     // 운영 환경 API URL
     return 'https://your-production-domain.com';

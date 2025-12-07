@@ -18,7 +18,7 @@ import userService from '../../services/userService';
 import { useAppState } from '../../store/AppContext'; 
 
 
-const UserProflile = ({ visible, onClose, onLogout }) => {
+const UserProfile = ({ visible, onClose, onLogout }) => {
   // ✅ 수정: updateUser를 제거하고 필요한 상태만 가져옵니다.
   const { user: globalUser, currentLocation, selectedTab } = useAppState(); 
 

@@ -3,67 +3,69 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
 import emergencyMessageService from '../../services/emergencyMessageService';
 import { useAppState } from '../../store/AppContext';
-// ❌ FCM 설정 함수 임포트 제거 (번들링 오류 방지)
-// import { setupFCM } from '../../utils/fcmManager'; 
+import userService from '../../services/userService'; 
+import RegionFilter from '../common/RegionFilter';     
+import { utils } from '../../services/ApiService'; // ✅ utils 임포트 (위치 변환용)
 
 const MessageContent = () => {
-  // ✅ useAppState에서 사용자 관련 상태를 가져옵니다.
-  const { currentLocation, selectedTab, user } = useAppState(); 
+  const { selectedTab, currentLocation } = useAppState(); // user 의존성 제거 (토큰 기반 확인)
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(false);
   
-  // (getRegionName 함수 생략)
-  const getRegionName = () => {
-    // 1. 최우선: 사용자 관심 지역 목록 (설정된 경우)
-    if (user?.interestRegions && user.interestRegions.length > 0) {
-        const primaryRegion = user.interestRegions[0].region_name;
-        console.log(`[getRegionName/Content] 1. 관심지역 발견: ${primaryRegion} 사용`);
-        return primaryRegion;
+  // 관심지역 목록
+  const [interestRegions, setInterestRegions] = useState([]);
+  // 현재 선택된 지역 (초기값 '전체')
+  const [selectedRegionName, setSelectedRegionName] = useState('전체'); 
+
+  // 📍 현재 위치를 지역명으로 변환하는 함수
+  const getCurrentRegion = () => {
+    if (currentLocation) {
+      return utils.detectRegionFromLocation(currentLocation);
     }
+    return '서울'; // 위치 정보가 없을 경우 기본값
+  };
+
+  // ✅ [핵심 수정] 관심지역 로드 및 폴백(Fallback) 로직
+  const loadInterestRegions = async () => {
+    let fetchedRegions = [];
     
-    // 💡 디버깅: 관심지역이 로드되지 않았다면, 왜 로드되지 않았는지 로그 확인
-    if (user && !user.interestRegions) {
-        console.log("[getRegionName/Content] 1-a. user는 있지만 interestRegions는 로드 안 됨.");
-    } else if (user?.interestRegions?.length === 0) {
-        console.log("[getRegionName/Content] 1-b. interestRegions가 비어 있음 (관심지역 미설정).");
+    try {
+      // 1. 서버에서 관심지역 목록 조회 시도 (로그인 여부와 상관없이 토큰이 있으면 조회됨)
+      const regionData = await userService.getInterestRegions();
+      fetchedRegions = (regionData.regions || []).map(r => r.region_name);
+    } catch (error) {
+      // 로그인이 안 되어 있거나 오류 발생 시 무시하고 위치 기반으로 넘어감
+      console.log('관심지역 로드 실패 또는 비로그인 상태:', error.message);
     }
 
-    // 2. 차선: currentLocation.favoriteRegion (GPS/현재 위치 기반 지역)
-    // 💡 수정: 관심지역 설정이 없으면, 현재 위치 기반 지역을 사용
-    if (currentLocation && currentLocation.favoriteRegion) {
-        console.log(`[getRegionName/Content] 2. 현재 위치 기반 지역 발견: ${currentLocation.favoriteRegion} 사용`);
-        return currentLocation.favoriteRegion;
+    if (fetchedRegions.length > 0) {
+      // [Case A] 관심지역이 있는 경우
+      setInterestRegions(fetchedRegions);
+      
+      // 현재 선택된 지역이 목록에 없으면 첫 번째 지역 선택
+      if (selectedRegionName === '전체' || !fetchedRegions.includes(selectedRegionName)) {
+        setSelectedRegionName(fetchedRegions[0]);
+      }
+    } else {
+      // [Case B] 관심지역이 없거나 설정 안 된 경우 -> 📍 현재 위치 기반 자동 설정
+      console.log('관심지역 없음 -> 현재 위치 기반 모드로 전환');
+      setInterestRegions([]); // 목록 비움
+      const currentRegion = getCurrentRegion();
+      setSelectedRegionName(currentRegion); 
     }
-
-    // 💡 디버깅: 현재 위치 정보도 비어 있다면 로그 확인
-    console.log("[getRegionName/Content] 2-a. currentLocation.favoriteRegion 없음.");
-    
-    // 3. 최종 기본값
-    console.log("[getRegionName/Content] 3. 기본값: 김해시 사용");
-    return '김해시';
-  }
-
-  // ❌ 1. FCM 토큰 발급 및 서버 전송 로직 제거
-  useEffect(() => {
-    // console.log("FCM 설정 시도: MessageContent 마운트됨");
-    // setupFCM(); // 호출 제거
-  }, []); 
-
-  // (나머지 loadMessages 및 렌더링 로직은 유지)
-  useEffect(() => {
-    if (selectedTab === '재난문자') {
-      loadMessages();
-    }
-  }, [selectedTab, currentLocation, user]); // user 의존성 추가
-
-  const loadMessages = async () => {
+  };
+  
+  // 메시지 로드 함수
+  const loadMessages = async (regionName) => {
+    if (!regionName || regionName === '전체') return;
+      
     setLoading(true);
     try {
-      const regionName = getRegionName();
+      console.log(`재난문자 로드 요청: ${regionName}`);
       const response = await emergencyMessageService.getEmergencyMessages(regionName);
       
       if (response.success && response.messages) {
-        setMessages(response.messages.slice(0, 3));
+        setMessages(response.messages.slice(0, 5));
       } else {
          setMessages([]);
       }
@@ -75,7 +77,21 @@ const MessageContent = () => {
     }
   };
 
-  const getSeverityColor = (severity) => {
+  // 탭이 열릴 때마다 관심지역(또는 현재위치) 정보 갱신
+  useEffect(() => {
+    if (selectedTab === '재난문자') {
+      loadInterestRegions();
+    }
+  }, [selectedTab]); // user 의존성 제거 (userService가 처리)
+  
+  // 지역이 변경되면 메시지 로드
+  useEffect(() => {
+      if (selectedTab === '재난문자' && selectedRegionName !== '전체') {
+          loadMessages(selectedRegionName);
+      }
+  }, [selectedTab, selectedRegionName]);
+
+  const getSeverityColor = (severity) => { 
     switch (severity) {
       case 'emergency': return '#f44336';
       case 'warning': return '#ff9800';
@@ -83,7 +99,7 @@ const MessageContent = () => {
       default: return '#666';
     }
   };
-
+  
   const getCategoryIcon = (category) => {
     switch (category) {
       case 'weather': return '🌦️';
@@ -93,28 +109,51 @@ const MessageContent = () => {
       default: return '🚨';
     }
   };
+  
+  const getRegionMessageCount = (region) => {
+      return region === selectedRegionName ? messages.length : null;
+  };
 
   return (
     <>
-      <ScrollView style={styles.scrollView}>
-        <View style={styles.content}>
+      <View style={styles.header}>
           <Text style={styles.title}>재난문자</Text>
           <Text style={styles.text}>
             {loading 
                 ? "재난문자를 불러오는 중..." 
-                : `현재 ${getRegionName()} 지역의 최근 재난문자`}
+                : interestRegions.length > 0 
+                    ? `설정된 관심지역: ${selectedRegionName}`
+                    : `📍 현재 위치 기반: ${selectedRegionName}` // ✅ 관심지역 없을 때 멘트 변경
+            }
           </Text>
-          
-          {/* ❌ AI 챗봇 버튼 제거 */}
-          
+      </View>
+      
+      {/* 관심 지역이 있을 때만 필터 버튼 표시 */}
+      {interestRegions.length > 0 && (
+          <RegionFilter
+              regions={interestRegions} 
+              selectedRegion={selectedRegionName}
+              onRegionChange={setSelectedRegionName}
+              getRegionNewsCount={getRegionMessageCount} 
+          />
+      )}
+      
+      <ScrollView style={styles.scrollView}>
+        <View style={styles.content}>
           <View style={styles.itemList}>
             {loading ? (
                 <View style={styles.loadingContainer}>
                     <ActivityIndicator size="large" color="#4285f4" />
+                    <Text style={styles.loadingText}>
+                        {selectedRegionName} 재난문자 확인 중...
+                    </Text>
                 </View>
             ) : messages.length === 0 ? (
               <View style={styles.emptyContainer}>
-                <Text style={styles.emptyText}>표시할 재난문자가 없습니다</Text>
+                <Text style={styles.emptyIcon}>💬</Text>
+                <Text style={styles.emptyText}>
+                    {selectedRegionName} 지역의 최근 재난문자가 없습니다.
+                </Text>
               </View>
             ) : (
               messages.map((item) => (
@@ -134,8 +173,6 @@ const MessageContent = () => {
           </View>
         </View>
       </ScrollView>
-
-      {/* ❌ AI 챗봇 모달 제거 */}
     </>
   );
 };
@@ -146,6 +183,11 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: 16,
+    paddingTop: 0,
+  },
+  header: {
+    padding: 16,
+    paddingBottom: 0,
   },
   title: {
     fontSize: 20,
@@ -158,20 +200,6 @@ const styles = StyleSheet.create({
     color: '#666',
     marginBottom: 16,
   },
-  // ❌ aiChatButton 스타일 제거 (사용하지 않으므로)
-  // aiChatButton: {
-  //   backgroundColor: '#4285f4',
-  //   paddingHorizontal: 20,
-  //   paddingVertical: 12,
-  //   borderRadius: 25,
-  //   alignItems: 'center',
-  //   marginBottom: 16,
-  // },
-  // aiChatButtonText: {
-  //   fontSize: 16,
-  //   color: '#ffffff',
-  //   fontWeight: '600',
-  // },
   itemList: {
     marginTop: 8,
   },
@@ -218,13 +246,23 @@ const styles = StyleSheet.create({
     padding: 20,
     alignItems: 'center',
   },
+  emptyIcon: {
+    fontSize: 48,
+    marginBottom: 10,
+  },
   emptyText: {
     fontSize: 14,
     color: '#999',
+    textAlign: 'center',
   },
   loadingContainer: {
     paddingVertical: 50,
     alignItems: 'center',
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+    color: '#666',
   }
 });
 

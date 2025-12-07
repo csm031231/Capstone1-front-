@@ -3,7 +3,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { View, Keyboard, StyleSheet} from 'react-native';
 import { useAppState, useAppDispatch, actions } from '../store/AppContext';
 import { apiService } from '../services/ApiService';
-import emergencyMessageService from '../services/emergencyMessageService';
+// import emergencyMessageService from '../services/emergencyMessageService'; // ❌ 제거됨
 import disasterActionService from '../services/disasterActionService';
 import Header from '../components/Header/Header';
 import MapContainer from '../components/Map/MapContainer';
@@ -46,7 +46,7 @@ export default function MainScreen() {
   useEffect(() => {
     switch (selectedTab) {
       case '재난문자':
-        loadMessages();
+        // ❌ loadMessages() 제거 (MessageContent.js에서 직접 처리)
         break;
       case '뉴스':
         loadNews();
@@ -61,7 +61,7 @@ export default function MainScreen() {
 
   useEffect(() => {
     loadNews();
-    loadDisasterMapData(); // 👈 추가됨
+    loadDisasterMapData();
   }, []);
 
   useEffect(() => {
@@ -88,24 +88,8 @@ export default function MainScreen() {
     loadNews();
   }, []);
   
-  // 재난문자 로드
-  const loadMessages = async () => {
-    try {
-      dispatch(actions.setLoading('messages', true));
-      const region = '김해시';
-      const response = await emergencyMessageService.getEmergencyMessages(region);
-      
-      if (response.success) {
-        dispatch(actions.setMessages(response.messages));
-      }
-    } catch (error) {
-      console.error('재난문자 로드 실패:', error);
-      dispatch(actions.setError('재난문자를 불러올 수 없습니다'));
-    } finally {
-      dispatch(actions.setLoading('messages', false));
-    }
-  };
-  
+  // ❌ loadMessages 함수 제거됨
+
   // 재난행동요령 로드
   const loadActions = async () => {
     try {
