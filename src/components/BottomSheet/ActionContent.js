@@ -1,47 +1,41 @@
-// ============================================
-// 📁 src/components/BottomSheet/ActionContent.js
-// ============================================
+// src/components/BottomSheet/ActionContent.js
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, ActivityIndicator } from 'react-native'; // Alert, ActivityIndicator import
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native'; 
+import { Ionicons } from '@expo/vector-icons'; 
 import AIChatbotModal from '../common/AIChatbotModal';
-import disasterActionService from '../../services/disasterActionService'; // 서비스 import
-import COLORS from '../../constants/colors'; // ✅ COLORS import 추가
+import disasterActionService from '../../services/disasterActionService'; 
+import COLORS from '../../constants/colors'; 
 
 const ActionContent = () => {
   const [showAiChat, setShowAiChat] = useState(false);
-  
-  // ✅ 추가: 현재 열린 항목의 ID (null 또는 action.id)
   const [openActionId, setOpenActionId] = useState(null);
-  // ✅ 추가: 로드된 행동요령 상세 데이터 저장
   const [actionDetails, setActionDetails] = useState({});
-  // ✅ 추가: 로딩 상태
   const [isLoading, setIsLoading] = useState(false);
 
-  // ID를 category_code와 유사하게 변경
   const mockActions = [
     {
-      id: '01012', // 태풍 코드
+      id: '01012',
       icon: '🌊',
       title: '태풍 대비 요령',
       subtitle: '사전준비 • 행동요령',
       color: '#9c27b0'
     },
     {
-      id: '01014', // 화재 코드
+      id: '01014',
       icon: '🔥',
       title: '화재 발생시 대피',
       subtitle: '초기대응 • 대피방법',
       color: '#795548'
     },
     {
-      id: '01011', // 지진 코드
+      id: '01011',
       icon: '⚡',
       title: '지진 발생시 행동',
       subtitle: '실내 • 실외 대응',
       color: '#607d8b'
     },
     {
-      id: 'blackout', // 특수 항목 ID
+      id: 'blackout',
       icon: '🌪️',
       title: '강풍 주의사항',
       subtitle: '외출금지 • 안전수칙',
@@ -49,38 +43,33 @@ const ActionContent = () => {
     }
   ];
   
-  // ✅ onPress 핸들러 수정
   const handleActionItemPress = async (action) => {
-    // 이미 열려 있으면 닫기
     if (openActionId === action.id) {
       setOpenActionId(null);
       return;
     }
     
-    // 특수 항목 (강풍 주의사항) - Alert 대신 상세 내용으로 표시
+    setOpenActionId(action.id);
+    if (actionDetails[action.id]) return;
+
+    // ✅ [수정] '구현 예정' 문구 제거 -> 실제 강풍 대비 요령 내용으로 대체
     if (action.id === 'blackout') {
         setActionDetails(prev => ({
             ...prev,
             [action.id]: {
                 title: action.title,
-                content: `${action.title} 상세 정보를 표시합니다. (구현 예정)`,
+                content: `1. 간판, 창문 등 낙하물 위험이 있는 곳을 피하세요.\n2. 유리창 파손에 대비해 안전필름을 부착하거나 창문틀을 고정하세요.\n3. 외출을 자제하고 안전한 실내에 머무르세요.\n4. 공사장이나 전신주 근처에는 접근하지 마세요.`,
                 url: null
             }
         }));
-        setOpenActionId(action.id);
         return;
     }
 
-    // 재난 유형에 따른 행동 요령 데이터 로드
-    setOpenActionId(action.id); // 항목을 즉시 열고 로딩 표시
     setIsLoading(true);
-    
     try {
         const response = await disasterActionService.getActionsByCategory(action.id, 1, 1);
-        
         if (response.success && response.items && response.items.length > 0) {
           const firstAction = response.items[0];
-          
           setActionDetails(prev => ({
             ...prev,
             [action.id]: {
@@ -90,12 +79,11 @@ const ActionContent = () => {
             }
           }));
         } else {
-          // 데이터는 불러왔으나 해당 카테고리에 내용이 없을 때
           setActionDetails(prev => ({
             ...prev,
             [action.id]: {
               title: action.title,
-              content: `현재 ${action.title}에 대한 상세 행동요령을 찾을 수 없습니다.`,
+              content: `현재 ${action.title}에 대한 상세 행동요령 정보를 불러오고 있습니다. 잠시 후 다시 시도해주세요.`,
               url: null
             }
           }));
@@ -106,7 +94,7 @@ const ActionContent = () => {
             ...prev,
             [action.id]: {
               title: action.title,
-              content: '행동요령 데이터를 불러오는 데 실패했습니다.\n(서버 연결 상태를 확인하세요)',
+              content: '데이터를 불러오는 데 실패했습니다.',
               url: null
             }
         }));
@@ -115,17 +103,15 @@ const ActionContent = () => {
     }
   };
   
-  // ✅ 상세 내용을 렌더링하는 컴포넌트 추가
   const renderActionDetails = (actionId) => {
     if (openActionId !== actionId) return null;
-    
     const details = actionDetails[actionId];
     
     if (isLoading && !details) {
       return (
-        <View style={styles.detailsContainer}>
+        <View style={styles.detailsLoadingContainer}>
           <ActivityIndicator size="small" color={COLORS.primary} />
-          <Text style={styles.detailsText}>정보를 불러오는 중...</Text>
+          <Text style={styles.detailsLoadingText}>정보를 불러오는 중...</Text>
         </View>
       );
     }
@@ -138,26 +124,35 @@ const ActionContent = () => {
         <Text style={styles.detailsContent}>{details.content}</Text>
         {details.url && (
           <Text style={styles.detailsLink}>
-            [더보기: {details.url.length > 30 ? details.url.substring(0, 30) + '...' : details.url}]
+            [더보기: {details.url.substring(0, 30)}...]
           </Text>
         )}
       </View>
     );
   };
-  
 
   return (
     <>
-      <ScrollView style={styles.scrollView}>
+      <View style={styles.header}>
+          <Text style={styles.headerTitle}>재난 행동요령</Text>
+          <Text style={styles.headerSubtitle}>AI 도우미와 대화하거나 아래 요령을 확인하세요</Text>
+      </View>
+
+      <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
         <View style={styles.content}>
-          <Text style={styles.title}>재난 행동요령</Text>
-          <Text style={styles.text}>AI 도우미와 대화하거나 아래 요령을 확인하세요</Text>
-          
           <TouchableOpacity 
             style={styles.aiChatButton}
             onPress={() => setShowAiChat(true)}
+            activeOpacity={0.9}
           >
-            <Text style={styles.aiChatButtonText}>AI 도우미와 채팅하기</Text>
+            <View style={styles.aiIconCircle}>
+                <Text style={{fontSize: 22}}>🤖</Text>
+            </View>
+            <View style={{flex: 1}}>
+                <Text style={styles.aiChatButtonTitle}>AI 안전 도우미</Text>
+                <Text style={styles.aiChatButtonSubtitle}>무엇이든 물어보세요!</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color="#fff" />
           </TouchableOpacity>
           
           <View style={styles.itemList}>
@@ -165,12 +160,13 @@ const ActionContent = () => {
               <React.Fragment key={item.id}>
                 <TouchableOpacity 
                   style={[
-                    styles.actionItem,
-                    openActionId === item.id && styles.selectedActionForBottomSheet 
+                    styles.cardItem,
+                    openActionId === item.id && styles.cardItemSelected 
                   ]}
-                  onPress={() => handleActionItemPress(item)} 
+                  onPress={() => handleActionItemPress(item)}
+                  activeOpacity={0.8} 
                 >
-                  <View style={[styles.actionIcon, { backgroundColor: item.color }]}>
+                  <View style={[styles.actionIcon, { backgroundColor: `${item.color}15` }]}>
                     <Text style={styles.actionIconText}>{item.icon}</Text>
                   </View>
                   <View style={styles.actionContent}>
@@ -181,10 +177,9 @@ const ActionContent = () => {
                     styles.actionArrow,
                     openActionId === item.id && styles.arrowRotated 
                   ]}>
-                    ⌵
+                    ▼
                   </Text>
                 </TouchableOpacity>
-                {/* ✅ 상세 내용 렌더링 */}
                 {renderActionDetails(item.id)}
               </React.Fragment>
             ))}
@@ -203,132 +198,168 @@ const ActionContent = () => {
 const styles = StyleSheet.create({
   scrollView: {
     maxHeight: 600,
+    backgroundColor: COLORS.background,
+  },
+  scrollContent: {
+    paddingBottom: 30,
+  },
+  header: {
+    paddingHorizontal: 16,
+    paddingTop: 5,
+    paddingBottom: 12,
+    backgroundColor: COLORS.surface,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+  },
+  headerTitle: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: COLORS.textPrimary,
+    marginBottom: 2,
+    left: 13, 
+  },
+  headerSubtitle: {
+    fontSize: 14,
+    color: COLORS.textSecondary,
+    left: 13,
   },
   content: {
     padding: 16,
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 8,
-  },
-  text: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 16,
+    paddingTop: 16,
   },
   aiChatButton: {
-    backgroundColor: '#4285f4',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: 25,
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  aiChatButtonText: {
-    fontSize: 16,
-    color: '#ffffff',
-    fontWeight: '600',
-  },
-  itemList: {
-    marginTop: 8,
-  },
-  actionItem: {
+    backgroundColor: COLORS.primary,
+    padding: 16,
+    borderRadius: 16,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#ffffff',
-    borderRadius: 12,
-    padding: 16,
-    // marginBottom: 12, // ✅ 상세 내용과 연결되도록 marginBottom 제거
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    overflow: 'hidden',
-    marginBottom: 12, // 💡 열리지 않은 항목 간의 간격
+    marginBottom: 24,
+    elevation: 4,
+    shadowColor: COLORS.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
   },
-  // ✅ 추가: 항목이 열렸을 때의 스타일
-  selectedActionForBottomSheet: {
-    borderBottomLeftRadius: 0, 
-    borderBottomRightRadius: 0,
-    backgroundColor: '#f5f5f5',
-    marginBottom: 0, // 상세 내용과 연결되도록 marginBottom 제거
-  },
-  actionIcon: {
+  aiIconCircle: {
     width: 48,
     height: 48,
     borderRadius: 24,
+    backgroundColor: 'rgba(255,255,255,0.2)',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 16,
   },
+  aiChatButtonTitle: {
+    fontSize: 18,
+    color: '#ffffff',
+    fontWeight: '700',
+    marginBottom: 2,
+  },
+  aiChatButtonSubtitle: {
+    fontSize: 13,
+    color: 'rgba(255,255,255,0.9)',
+  },
+  itemList: {
+  },
+  cardItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.surface,
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    elevation: 2,
+    shadowColor: COLORS.shadow,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 3,
+    marginBottom: 12,
+    zIndex: 1,
+  },
+  cardItemSelected: {
+    borderBottomLeftRadius: 0, 
+    borderBottomRightRadius: 0,
+    borderBottomWidth: 0,
+    marginBottom: 0, 
+    backgroundColor: '#fafafa',
+  },
+  actionIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 14,
+  },
   actionIconText: {
-    fontSize: 24,
+    fontSize: 22,
   },
   actionContent: {
     flex: 1,
   },
   actionTitle: {
     fontSize: 16,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 4,
+    fontWeight: '700',
+    color: COLORS.textPrimary,
+    marginBottom: 2,
   },
   actionSubtitle: {
-    fontSize: 14,
-    color: '#666',
+    fontSize: 13,
+    color: COLORS.textSecondary,
+    fontWeight: '500',
   },
   actionArrow: {
-    fontSize: 24,
-    color: '#ccc',
-    fontWeight: 'bold',
-    // transition: 'transform 0.3s ease-in-out', // RN에서는 사용 불가
+    fontSize: 14,
+    color: COLORS.textLight,
   },
   arrowRotated: {
-    transform: [{ rotate: '180deg' }], // ✅ 회전
+    transform: [{ rotate: '180deg' }],
+    color: COLORS.primary,
   },
-  // ✅ 추가: 상세 내용 스타일
   detailsContainer: {
-    backgroundColor: '#f9f9f9', // 밝은 회색 배경
-    padding: 16,
-    paddingTop: 8,
+    backgroundColor: '#fafafa', 
+    padding: 20,
     borderBottomLeftRadius: 12,
     borderBottomRightRadius: 12,
-    marginBottom: 12, // 다음 항목과의 간격
     borderWidth: 1,
-    borderColor: '#e0e0e0',
-    borderTopWidth: 0, // 상단 경계선 제거
-    elevation: 1,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 0.5 },
-    shadowOpacity: 0.05,
-    shadowRadius: 1,
+    borderTopWidth: 1, 
+    borderColor: COLORS.border,
+    marginBottom: 12,
+    marginTop: -1, 
   },
   detailsTitle: {
     fontSize: 15,
-    fontWeight: 'bold',
-    color: COLORS.primary,
+    fontWeight: '700',
+    color: COLORS.textPrimary,
     marginBottom: 8,
   },
   detailsContent: {
-    fontSize: 13,
-    color: COLORS.textSecondary,
-    lineHeight: 18,
-    marginBottom: 8,
+    fontSize: 14,
+    color: '#555',
+    lineHeight: 22,
+    marginBottom: 12,
   },
   detailsLink: {
-    fontSize: 11,
-    color: '#4285f4',
+    fontSize: 13,
+    color: COLORS.primary,
     textDecorationLine: 'underline',
   },
-  detailsText: { // 로딩 텍스트 스타일
+  detailsLoadingContainer: {
+    padding: 20,
+    alignItems: 'center',
+    backgroundColor: '#fafafa',
+    borderBottomLeftRadius: 12,
+    borderBottomRightRadius: 12,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    marginBottom: 12,
+    marginTop: -1,
+  },
+  detailsLoadingText: {
     fontSize: 13,
     color: COLORS.textSecondary,
-    marginLeft: 8,
+    marginTop: 8,
   }
 });
 
