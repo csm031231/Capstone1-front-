@@ -1,3 +1,6 @@
+// ============================================
+// 📁 src/components/Header/LoginSignupModal.js
+// ============================================
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import {
   View,
@@ -47,6 +50,7 @@ const LoginSignupModal = ({ visible, initialMode = 'login', onClose, onLoginSucc
   useEffect(() => {
     if (visible) {
       setIsLogin(initialMode === 'login');
+      // 모달이 열릴 때 비밀번호 등 민감 정보 초기화 (이메일은 유지 가능)
       if (initialMode !== (isLogin ? 'login' : 'signup')) {
         setPassword('');
       }
@@ -119,13 +123,13 @@ const LoginSignupModal = ({ visible, initialMode = 'login', onClose, onLoginSucc
       }
     } catch (error) {
       console.log("로그인 에러:", error);
-      Alert.alert('로그인 실패', error.message);
+      Alert.alert('로그인 실패', error.message || '이메일 또는 비밀번호를 확인해주세요.');
     } finally {
       setLoading(false);
     }
   };
 
-  // 회원가입 로직
+  // 회원가입 전 검증 로직
   const handleSignup = async () => {
     // 필수값 체크
     if (!email || !password || !username) {
@@ -160,12 +164,12 @@ const LoginSignupModal = ({ visible, initialMode = 'login', onClose, onLoginSucc
     await performSignup();
   };
 
-  // 실제 회원가입 실행 (가입 -> 로그인 -> 지역설정)
+  // ✅ 실제 회원가입 실행 (핵심 로직 수정됨)
   const performSignup = async () => {
     try {
       setLoading(true);
       
-      // 1. 회원가입
+      // 1. 회원가입 API 호출
       await userService.register({
         email,
         password,
@@ -174,50 +178,43 @@ const LoginSignupModal = ({ visible, initialMode = 'login', onClose, onLoginSucc
         phone: phone || null
       });
       
-      // 2. 관심지역 설정이 있는 경우: 자동 로그인 후 지역 설정
+      // 2. 관심지역이 선택되어 있다면 -> [임시 로그인 -> 저장 -> 로그아웃] 프로세스 수행
       if (selectedRegions.length > 0) {
-        try {
-          const loginResponse = await userService.login(email, password);
-          const regionResult = await userService.bulkAddInterestRegions(selectedRegions);
-          
-          Alert.alert(
-            '회원가입 완료!', 
-            `계정이 생성되었고 ${regionResult.success_count}개의 관심지역이 설정되었습니다!`,
-            [{
-              text: '시작하기',
-              onPress: () => {
-                resetForm();
-                if (onLoginSuccess) onLoginSuccess(loginResponse);
-              }
-            }]
-          );
-        } catch (regionError) {
-          console.error('관심지역 설정 실패:', regionError);
-          Alert.alert(
-            '회원가입 완료', 
-            '계정은 생성되었으나 관심지역 설정에 실패했습니다.\n로그인 후 마이페이지에서 다시 설정해주세요.',
-            [{
-              text: '로그인하기',
-              onPress: () => {
-                setIsLogin(true);
-                setPassword('');
-              }
-            }]
-          );
-        }
-      } else {
-        Alert.alert(
-          '회원가입 성공', 
-          '계정이 성공적으로 생성되었습니다!\n이제 로그인해주세요.', 
-          [{
-            text: '로그인하기',
-            onPress: () => {
-              setIsLogin(true);
-              setPassword('');
-            }
-          }]
-        );
+         try {
+            // (1) 토큰 발급을 위해 로그인
+            await userService.login(email, password);
+            
+            // (2) 관심지역 저장
+            await userService.bulkAddInterestRegions(selectedRegions);
+            
+            // (3) 로그아웃 (사용자가 직접 로그인하게 하기 위함)
+            await userService.logout();
+            
+            console.log('회원가입 후 관심지역 저장 완료');
+         } catch (regionError) {
+            console.error('관심지역 저장 중 오류 (가입은 성공):', regionError);
+            // 여기서 에러가 나도 가입은 성공했으므로 진행
+         }
       }
+
+      // 3. 성공 알림 및 로그인 탭으로 이동
+      Alert.alert(
+        '회원가입 성공', 
+        '계정이 성공적으로 생성되었습니다.\n설정한 관심지역이 저장되었습니다.\n로그인해주세요.', 
+        [{
+          text: '확인',
+          onPress: () => {
+            // 로그인 탭으로 전환
+            setIsLogin(true);
+            
+            // 입력창 초기화 (이메일은 사용자 편의를 위해 유지)
+            const currentEmail = email;
+            resetForm();
+            setEmail(currentEmail);
+          }
+        }]
+      );
+
     } catch (error) {
       Alert.alert('회원가입 실패', error.message || '회원가입 중 오류가 발생했습니다.');
     } finally {
@@ -465,41 +462,49 @@ const LoginSignupModal = ({ visible, initialMode = 'login', onClose, onLoginSucc
                   </View>
                 </TouchableOpacity>
 
-                {/* 지역 목록 */}
+                {/* ✅ 지역 목록 (잘림 방지를 위해 maxHeight 증가 및 스크롤바 표시) */}
                 {isRegionsExpanded && (
                   <View style={styles.regionListContainer}>
                     {regionsLoading ? (
                       <ActivityIndicator size="small" color={COLORS.primary} style={{ marginVertical: 12 }} />
                     ) : (
-                      <View style={styles.regionList}>
-                        {availableRegions.map((region) => {
-                          const isSelected = selectedRegions.includes(region.id);
-                          return (
-                            <TouchableOpacity
-                              key={region.id}
-                              style={[
-                                styles.regionItem,
-                                isSelected && styles.regionItemSelected
-                              ]}
-                              onPress={() => handleToggleRegion(region.id)}
-                              activeOpacity={0.7}
-                            >
-                              <Ionicons 
-                                name={isSelected ? "checkbox" : "square-outline"} 
-                                size={20} 
-                                color={isSelected ? COLORS.primary : COLORS.textSecondary} 
-                                style={styles.regionCheckbox}
-                              />
-                              <Text style={[
-                                styles.regionName,
-                                isSelected && styles.regionNameSelected
-                              ]}>
-                                {region.name}
-                              </Text>
-                            </TouchableOpacity>
-                          );
-                        })}
-                      </View>
+                      <ScrollView 
+                        nestedScrollEnabled={true} 
+                        style={styles.regionScrollView}
+                        contentContainerStyle={styles.regionScrollContent}
+                        persistentScrollbar={true}
+                        showsVerticalScrollIndicator={true}
+                      >
+                        <View style={styles.regionList}>
+                          {availableRegions.map((region) => {
+                            const isSelected = selectedRegions.includes(region.id);
+                            return (
+                              <TouchableOpacity
+                                key={region.id}
+                                style={[
+                                  styles.regionItem,
+                                  isSelected && styles.regionItemSelected
+                                ]}
+                                onPress={() => handleToggleRegion(region.id)}
+                                activeOpacity={0.7}
+                              >
+                                <Ionicons 
+                                  name={isSelected ? "checkbox" : "square-outline"} 
+                                  size={20} 
+                                  color={isSelected ? COLORS.primary : COLORS.textSecondary} 
+                                  style={styles.regionCheckbox}
+                                />
+                                <Text style={[
+                                  styles.regionName,
+                                  isSelected && styles.regionNameSelected
+                                ]}>
+                                  {region.name}
+                                </Text>
+                              </TouchableOpacity>
+                            );
+                          })}
+                        </View>
+                      </ScrollView>
                     )}
                   </View>
                 )}
@@ -756,10 +761,17 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: '700',
   },
+  // ✅ [수정] 스크롤 컨테이너 스타일 (높이 증가)
   regionListContainer: {
     borderTopWidth: 1,
     borderTopColor: COLORS.border,
-    maxHeight: 250, 
+    backgroundColor: COLORS.background, 
+  },
+  regionScrollView: {
+    maxHeight: 300, // ✅ 높이를 300으로 넉넉하게 설정
+  },
+  regionScrollContent: {
+    flexGrow: 1,
   },
   regionList: {
     padding: 12,
@@ -771,7 +783,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     width: '48%', 
-    backgroundColor: COLORS.background,
+    backgroundColor: COLORS.surface,
     paddingHorizontal: 12,
     paddingVertical: 10,
     borderRadius: 8,

@@ -1,217 +1,67 @@
-// apiConfig.js - FINAL VERSION
+// ============================================
+// 📁 src/services/apiConfig.js
+// ============================================
 
 const getApiBaseUrl = () => {
   if (typeof __DEV__ !== 'undefined' && __DEV__) {
-    // 개발 환경 API URL
+    // ⚠️ [중요] 실행 중인 PC의 IP 주소로 변경해주세요. (cmd -> ipconfig 확인)
+    // 예: return 'http://192.168.0.15:8000'; 
     return 'http://192.168.0.3:8000'; 
   } else {
-    // 운영 환경 API URL
     return 'https://your-production-domain.com';
   }
 };
 
-const API_BASE_URL = getApiBaseUrl();
+export const API_BASE_URL = getApiBaseUrl();
 
 const DEFAULT_HEADERS = {
   'Accept': 'application/json',
   'Content-Type': 'application/json',
 };
 
-// =========================================================================
-// ✅ AsyncStorage 로드 로직 재수정: ReferenceError 방지 로직 강화
-// =========================================================================
-
-// 네이티브 전용 모듈을 지연 로드하는 헬퍼 함수
+// AsyncStorage 안전하게 로드
 const loadAsyncStorage = () => {
     try {
         if (typeof navigator !== 'undefined' && navigator.product === 'ReactNative') {
-             // 💡 require 호출이 실패하면 catch 블록으로 이동하여 null을 반환합니다.
-             // 이로써 AsyncStorage를 사용하는 모든 함수가 null 체크를 할 수 있게 됩니다.
              return require('@react-native-async-storage/async-storage').default; 
         }
     } catch (e) {
-        console.warn('AsyncStorage load failed:', e.message);
         return null;
     }
     return null;
 }
 
 export const getStorageItem = async (key) => {
-  try {
-    // React Native 환경인 경우에만 AsyncStorage 로드 시도
-    if (typeof navigator !== 'undefined' && navigator.product === 'ReactNative') {
-      const AsyncStorage = loadAsyncStorage();
-      if (AsyncStorage) { // ✅ AsyncStorage가 null이 아닐 때만 사용
-         return await AsyncStorage.getItem(key);
-      }
-    }
-    
-    // 웹 환경 (localStorage 사용)
-    if (typeof localStorage !== 'undefined') {
-      return localStorage.getItem(key);
-    }
-    
-    return null;
-  } catch (error) {
-    console.warn('Storage 접근 실패:', error);
-    return null;
-  }
+    const AsyncStorage = loadAsyncStorage();
+    if (!AsyncStorage) return null;
+    try { return await AsyncStorage.getItem(key); } catch (e) { return null; }
 };
 
-export const setStorageItem = async (key, value) => { 
-    try {
-        if (typeof navigator !== 'undefined' && navigator.product === 'ReactNative') {
-            const AsyncStorage = loadAsyncStorage();
-            if (AsyncStorage) { // ✅ AsyncStorage가 null이 아닐 때만 사용
-                await AsyncStorage.setItem(key, value);
-                return;
-            }
-        }
-        
-        if (typeof localStorage !== 'undefined') {
-            localStorage.setItem(key, value);
-        }
-    } catch (error) {
-        console.warn('Storage 저장 실패:', error);
-    }
+export const setStorageItem = async (key, value) => {
+    const AsyncStorage = loadAsyncStorage();
+    if (!AsyncStorage) return;
+    try { await AsyncStorage.setItem(key, value); } catch (e) {}
 };
 
-export const removeStorageItem = async (key) => { 
-  try {
-    // React Native 환경인 경우에만 AsyncStorage 로드 시도
-    if (typeof navigator !== 'undefined' && navigator.product === 'ReactNative') {
-      const AsyncStorage = loadAsyncStorage();
-      if (AsyncStorage) { // ✅ AsyncStorage가 null이 아닐 때만 사용
-         await AsyncStorage.removeItem(key);
-         return;
-      }
-    }
-    
-    // 웹 환경
-    if (typeof localStorage !== 'undefined') {
-      localStorage.removeItem(key);
-    }
-  } catch (error) {
-    console.warn('Storage 삭제 실패:', error);
-  }
+export const removeStorageItem = async (key) => {
+    const AsyncStorage = loadAsyncStorage();
+    if (!AsyncStorage) return;
+    try { await AsyncStorage.removeItem(key); } catch (e) {}
 };
 
-// =========================================================================
-
-export const apiRequest = async (endpoint, options = {}) => {
-  const url = `${API_BASE_URL}${endpoint}`;
-  
-  try {
-    const config = {
-      method: options.method || 'GET',
-      headers: {
-        ...DEFAULT_HEADERS,
-        ...options.headers,
-      },
-    };
-
-    // 인증 토큰 처리
-    if (!options.skipAuth) {
-      if (options.token) {
-        config.headers['Authorization'] = `Bearer ${options.token}`;
-      } else {
-        const token = await getStorageItem('access_token');
-        if (token) {
-          config.headers['Authorization'] = `Bearer ${token}`;
-        }
-      }
-    }
-
-    if (options.body && (options.method === 'POST' || options.method === 'PUT' || options.method === 'PATCH')) {
-      config.body = options.body;
-    }
-    
-    // 요청 데이터 로깅
-    if (typeof __DEV__ !== 'undefined' && __DEV__) {
-      console.log(`API 요청: ${config.method} ${url}`);
-      const isJsonBody = config.headers['Content-Type']?.includes('application/json');
-      if (config.body) {
-        console.log('요청 데이터:', isJsonBody ? JSON.parse(config.body) : config.body);
-      }
-    }
-
-    const response = await fetch(url, config);
-    
-    if (typeof __DEV__ !== 'undefined' && __DEV__) {
-      console.log(`응답 상태: ${response.status} ${response.statusText}`);
-    }
-
-    // --- HTTP 상태 코드 오류 처리 (4xx, 5xx) ---
-    if (!response.ok) {
-      let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
-      
-      try {
-        const responseText = await response.text();
-        if (responseText) {
-          const errorData = JSON.parse(responseText); 
-          errorMessage = errorData?.detail
-            ? (Array.isArray(errorData.detail) ? JSON.stringify(errorData.detail) : errorData.detail)
-            : errorData?.message || errorMessage;
-        }
-      } catch (parseError) {
-        // 비정상적인 응답 (JSON이 아닌 경우) 처리
-        console.log('응답 오류를 JSON으로 파싱할 수 없음 (일반 텍스트일 수 있음).');
-      }
-      
-      if (response.status === 401) {
-        await removeStorageItem('access_token');
-        await removeStorageItem('user_info');
-      }
-      
-      throw new Error(errorMessage);
-    }
-    
-    // --- 정상 응답 처리 (2xx) ---
-    const contentType = response.headers.get('content-type');
-    
-    if (contentType && contentType.includes('application/json')) {
-      const data = await response.json();
-      
-      if (typeof __DEV__ !== 'undefined' && __DEV__) {
-        console.log('응답 데이터 (JSON):', JSON.stringify(data, null, 2));
-      }
-      return data;
-    } else {
-      const text = await response.text();
-      
-      if (text.length > 0) {
-        console.warn(`API 응답 (${endpoint}): JSON이 아닌 텍스트 응답이 도착했습니다.`, text.substring(0, 50));
-        return null; 
-      }
-      
-      return null;
-    }
-    
-  } catch (error) {
-    if (error.name === 'TypeError' && error.message.includes('fetch')) {
-      throw new Error('네트워크 연결을 확인해주세요.');
-    }
-    
-    throw error;
-  }
-};
-
+// ✅ API 엔드포인트 (백엔드 user_router.py와 일치시킴)
 export const API_ENDPOINTS = {
   USER: {
     LOGIN: '/users/login',
     REGISTER: '/users/register',
     ME: '/users/me',
     UPDATE_ME: '/users/me',
-    CHANGE_PASSWORD: '/users/me/password', // 💡 /users/change-password에서 수정
-    DELETE: '/users/delete',
+    CHANGE_PASSWORD: '/users/me/password',
+    // 🔴 백엔드 설정: @router.put("/me/fcm-token") -> 최종 URL: /users/me/fcm-token
+    FCM_TOKEN: '/users/me/fcm-token', 
   },
   
-  MAP: {
-    COORDINATES: '/map/coordinates', // naver_map_router.py의 prefix(/map) + path(/coordinates)
-    DIRECTIONS: '/directions/directions',
-  },
-  
-  REGION: { // 💡 새 섹션 추가
+  REGION: {
     ALL: '/users/regions/list',
     SEARCH: '/users/regions/search',
     MY_REGIONS: '/users/regions/my-regions',
@@ -243,28 +93,70 @@ export const API_ENDPOINTS = {
     ASK: '/chatbot/ask',
     ASK_SMART: '/chatbot/ask-smart',
     HEALTH: '/chatbot/health',
-    CATEGORIES: '/chatbot/categories',
+    CATEGORIES: '/chatbot/categories'
   },
-  
-  SYSTEM: {
-    HEALTH: '/health',
-    ROOT: '/',
+
+  MAP: {
+    DIRECTIONS: '/directions/directions',
   }
 };
 
-export const checkConnection = async () => {
+export const apiRequest = async (endpoint, options = {}) => {
   try {
-    const response = await apiRequest('/health', { skipAuth: true });
-    return response.status === 'healthy';
+    const url = `${API_BASE_URL}${endpoint}`;
+    const headers = { ...DEFAULT_HEADERS, ...options.headers };
+
+    if (!options.skipAuth) {
+      const token = await getStorageItem('access_token');
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    const config = { ...options, headers };
+    
+    // 타임아웃
+    const controller = new AbortController();
+    const id = setTimeout(() => controller.abort(), options.timeout || 10000);
+    config.signal = controller.signal;
+
+    console.log(`📡 API Request: ${config.method || 'GET'} ${url}`);
+    
+    const response = await fetch(url, config);
+    clearTimeout(id);
+
+    if (!response.ok) {
+        if (response.status === 401) {
+            await removeStorageItem('access_token');
+            await removeStorageItem('user_info');
+        }
+        let errorMessage = `HTTP Error ${response.status}`;
+        try {
+            const errorData = await response.json();
+            errorMessage = errorData.detail || errorData.message || errorMessage;
+        } catch (e) {}
+        throw new Error(errorMessage);
+    }
+    
+    if (response.status === 204) return {};
+    return await response.json();
+
   } catch (error) {
-    console.error('연결 상태 확인 실패:', error.message);
-    return false;
+    console.error(`❌ API Error (${endpoint}):`, error.message);
+    throw error;
   }
+};
+
+export const utils = {
+    detectRegionFromLocation: (location) => {
+        if (!location) return '전체';
+        return '전체'; // 실제 로직은 필요에 따라 복구
+    }
 };
 
 export default {
-  apiRequest,
-  checkConnection,
   API_ENDPOINTS,
-  API_BASE_URL,
+  apiRequest,
+  getStorageItem,
+  setStorageItem,
+  removeStorageItem,
+  utils
 };

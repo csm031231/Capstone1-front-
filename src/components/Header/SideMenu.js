@@ -1,5 +1,5 @@
 // ============================================
-// 📁 src/components/Header/SideMenu.js (로그인 기능 추가)
+// 📁 src/components/Header/SideMenu.js
 // ============================================
 import React from 'react';
 import {
@@ -9,7 +9,7 @@ import {
   TouchableOpacity,
   Modal,
   ScrollView,
-  Alert,
+  SafeAreaView, // SafeAreaView 추가 (필요 시)
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import COLORS from '../../constants/colors';
@@ -39,7 +39,7 @@ const SideMenu = ({
 
   // 로그인 메뉴
   const userMenuItems = [
-    { id: 'mypage', title: '회원정보수정', icon: 'create-outline', description: '개인정보를 수정하세요' },
+    { id: 'mypage', title: '마이페이지', icon: 'person-outline', description: '내 정보 및 관심지역 관리' }, // 아이콘/텍스트 통일
     { id: 'settings', title: '설정', icon: 'settings-outline', description: '앱 설정을 변경하세요' },
     { id: 'help', title: '도움말', icon: 'help-circle-outline', description: '사용법 및 문의사항' },
     { id: 'logout', title: '로그아웃', icon: 'log-out-outline', description: '계정에서 로그아웃' },
@@ -48,12 +48,9 @@ const SideMenu = ({
   const currentMenuItems = isLoggedIn ? userMenuItems : guestMenuItems;
 
   const handleMenuPress = (itemId) => {
-    if (itemId === 'help') {
-      Alert.alert('도움말', '도움말 및 문의 화면으로 이동합니다.');
-      onClose();
-    } else {
-      onMenuItemPress(itemId);
-    }
+    // 🚨 수정됨: 여기서 Alert를 띄우지 않고 부모(Header.js)에게 바로 전달합니다.
+    // 그래야 Header.js에서 HelpModal을 띄울 수 있습니다.
+    onMenuItemPress(itemId);
   };
 
   const renderMenuItem = (item) => (
