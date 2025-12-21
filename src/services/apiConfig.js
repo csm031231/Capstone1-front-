@@ -115,7 +115,7 @@ export const apiRequest = async (endpoint, options = {}) => {
     
     // 타임아웃
     const controller = new AbortController();
-    const id = setTimeout(() => controller.abort(), options.timeout || 10000);
+    const id = setTimeout(() => controller.abort(), options.timeout || 60000);
     config.signal = controller.signal;
 
     console.log(`📡 API Request: ${config.method || 'GET'} ${url}`);

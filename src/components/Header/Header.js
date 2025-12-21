@@ -4,12 +4,13 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { View, StyleSheet, TextInput, TouchableOpacity, Keyboard, Text, FlatList } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useNavigation, CommonActions } from '@react-navigation/native'; // ✅ 추가
+
 import COLORS from '../../constants/colors';
 import SideMenu from './SideMenu';
 import SettingsModal from './SettingsModal';
 import LoginSignupModal from './LoginSignupModal';
 import MyPageScreen from './UserProfile';
-// ✅ HelpModal 추가
 import HelpModal from './HelpModal'; 
 import userService from '../../services/userService';
 import { getToken } from '../../fcm/fcm'; 
@@ -18,11 +19,12 @@ const Header = ({
     searchText, setSearchText, onSearch, theme = 'white', onThemeChange,
     relatedSearches = [], onRelatedSearchClick, showRelatedSearches = false, onSearchTextChange 
 }) => {
+    const navigation = useNavigation();
     const [showSideMenu, setShowSideMenu] = useState(false);
     const [showSettingsModal, setShowSettingsModal] = useState(false);
     const [showLoginModal, setShowLoginModal] = useState(false);
     const [showMyPage, setShowMyPage] = useState(false);
-    const [showHelpModal, setShowHelpModal] = useState(false); // ✅ 도움말 모달 상태
+    const [showHelpModal, setShowHelpModal] = useState(false);
 
     const [modalMode, setModalMode] = useState('login');
     const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -88,6 +90,15 @@ const Header = ({
             } catch (fcmError) {
                 console.log("⚠️ [FCM] 오류 (비차단):", fcmError);
             }
+
+            // ✅ 로그인 시 메인 화면으로 리셋 (초기화)
+            navigation.dispatch(
+                CommonActions.reset({
+                    index: 0,
+                    routes: [{ name: 'Home' }], 
+                })
+            );
+
         } catch (error) {
             console.error('로그인 후 처리 실패:', error);
         } finally {
@@ -115,8 +126,11 @@ const Header = ({
             case 'settings':
                 setShowSettingsModal(true);
                 break;
-            case 'help': // ✅ 도움말 케이스
+            case 'help': 
                 setShowHelpModal(true);
+                break;
+            case 'interest-location':
+                setTimeout(() => setShowMyPage(true), 300);
                 break;
         }
     };
@@ -179,14 +193,7 @@ const Header = ({
             />
             <SettingsModal visible={showSettingsModal} onClose={() => setShowSettingsModal(false)} currentTheme={theme} onThemeChange={(t) => { onThemeChange(t); setShowSettingsModal(false); }} />
             <LoginSignupModal visible={showLoginModal} initialMode={modalMode} onClose={() => setShowLoginModal(false)} onLoginSuccess={handleLoginSuccess} />
-            
-            <MyPageScreen
-                visible={showMyPage}
-                onClose={() => { setShowMyPage(false); loadUserInfo(); }} // 마이페이지 닫을 때 정보 갱신
-                onLogout={handleLogout} // ✅ 로그아웃 함수 전달
-            />
-            
-            {/* ✅ 도움말 모달 추가 */}
+            <MyPageScreen visible={showMyPage} onClose={() => { setShowMyPage(false); loadUserInfo(); }} onLogout={handleLogout} />
             <HelpModal visible={showHelpModal} onClose={() => setShowHelpModal(false)} />
         </>
     );

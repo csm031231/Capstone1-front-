@@ -1,14 +1,27 @@
+// ============================================
+// 📁 App.js
+// ============================================
 import React, { useEffect } from 'react';
-import { View, StyleSheet, StatusBar } from 'react-native';
+import { StyleSheet, StatusBar } from 'react-native';
 import messaging from '@react-native-firebase/messaging';
+
+// ✅ 네비게이션 관련 임포트 (추가됨)
+import { NavigationContainer } from '@react-navigation/native';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
+
 import { AppProvider } from './src/store/AppContext';
 import MainScreen from './src/screens/MainScreen';
 import ErrorBoundary from './src/components/common/ErrorBoundary';
 
+// 스택 네비게이터 생성
+const Stack = createNativeStackNavigator();
+
 export default function App() {
+  
+  // 🔥 FCM 권한 및 토큰 로직 (기존 코드 유지)
   useEffect(() => {
     const initFCM = async () => {
-      // 🔥 푸시 권한 요청
       const authStatus = await messaging().requestPermission();
       const enabled =
         authStatus === messaging.AuthorizationStatus.AUTHORIZED ||
@@ -19,16 +32,8 @@ export default function App() {
         return;
       }
 
-      // 🔥 FCM 토큰 발급
       const token = await messaging().getToken();
       console.log("FCM TOKEN:", token);
-
-      // 🔥 FastAPI로 보내고 싶으면 여기서 POST
-      // await fetch("<http://서버주소/save-token>", {
-      //   method: "POST",
-      //   headers: { "Content-Type": "application/json" },
-      //   body: JSON.stringify({ token }),
-      // });
     };
 
     initFCM();
@@ -37,10 +42,16 @@ export default function App() {
   return (
     <ErrorBoundary>
       <AppProvider>
-        <StatusBar barStyle="light-content" backgroundColor="#1a1a1a" />
-        <View style={styles.container}>
-          <MainScreen />
-        </View>
+        {/* ✅ SafeAreaProvider와 NavigationContainer로 감싸야 함 */}
+        <SafeAreaProvider>
+          <NavigationContainer>
+            <Stack.Navigator screenOptions={{ headerShown: false }}>
+              {/* Header.js에서 reset할 때 사용한 이름 'Home'과 일치해야 함 */}
+              <Stack.Screen name="Home" component={MainScreen} />
+            </Stack.Navigator>
+          </NavigationContainer>
+          <StatusBar barStyle="light-content" backgroundColor="#1a1a1a" />
+        </SafeAreaProvider>
       </AppProvider>
     </ErrorBoundary>
   );
