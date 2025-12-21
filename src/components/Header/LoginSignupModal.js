@@ -126,7 +126,7 @@ const LoginSignupModal = ({ visible, initialMode = 'login', onClose, onLoginSucc
 
   const handleClose = () => { Keyboard.dismiss(); resetForm(); onClose(); };
 
-  // ✅ [핵심 해결책] 입력창 누르면 화면을 강제로 그 위치로 이동시키는 함수
+  // 화면 스크롤 이동 함수
   const scrollToInput = (yPosition) => {
     if (scrollViewRef.current) {
         scrollViewRef.current.scrollTo({
@@ -140,7 +140,6 @@ const LoginSignupModal = ({ visible, initialMode = 'login', onClose, onLoginSucc
     <Modal visible={visible} animationType="slide" transparent={false} onRequestClose={handleClose}>
       <KeyboardAvoidingView
         style={styles.container}
-        // 안드로이드는 height, iOS는 padding이 국룰이지만, 모달에서는 둘 다 padding이 나을 수 있음
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'} 
       >
         <View style={styles.header}>
@@ -174,7 +173,7 @@ const LoginSignupModal = ({ visible, initialMode = 'login', onClose, onLoginSucc
                     placeholderTextColor={COLORS.textSecondary} 
                     autoCapitalize="none" 
                     returnKeyType="next" 
-                    // ✅ 누르면 맨 위(0)로 스크롤
+                    // ✅ 사용자명: 맨 위로 (0)
                     onFocus={() => { setFocusedField('username'); scrollToInput(0); }} 
                     onBlur={() => setFocusedField(null)} 
                     onSubmitEditing={() => emailRef.current?.focus()} 
@@ -196,8 +195,8 @@ const LoginSignupModal = ({ visible, initialMode = 'login', onClose, onLoginSucc
                   keyboardType="email-address" 
                   autoCapitalize="none" 
                   returnKeyType="next" 
-                  // ✅ 누르면 적절한 위치(70)로 스크롤
-                  onFocus={() => { setFocusedField('email'); scrollToInput(70); }} 
+                  // ✅ 이메일: 로그인 화면의 맨 위이므로 스크롤 안 함 (0)
+                  onFocus={() => { setFocusedField('email'); scrollToInput(0); }} 
                   onBlur={() => setFocusedField(null)} 
                   onSubmitEditing={() => passwordRef.current?.focus()} 
                />
@@ -217,8 +216,8 @@ const LoginSignupModal = ({ visible, initialMode = 'login', onClose, onLoginSucc
                   secureTextEntry 
                   autoCapitalize="none" 
                   returnKeyType={isLogin ? "done" : "next"} 
-                  // ✅ 누르면 더 아래(140)로 스크롤
-                  onFocus={() => { setFocusedField('password'); scrollToInput(140); }} 
+                  // ✅ 비밀번호: 역시 위쪽이므로 스크롤 거의 안 함 (0) - 그래야 안 잘림
+                  onFocus={() => { setFocusedField('password'); scrollToInput(0); }} 
                   onBlur={() => setFocusedField(null)} 
                   onSubmitEditing={isLogin ? handleLogin : () => nicknameRef.current?.focus()} 
               />
@@ -243,8 +242,8 @@ const LoginSignupModal = ({ visible, initialMode = 'login', onClose, onLoginSucc
                         placeholder="닉네임 (선택사항)" 
                         placeholderTextColor={COLORS.textSecondary} 
                         returnKeyType="next" 
-                        // ✅ 누르면 더더 아래(250)로 스크롤
-                        onFocus={() => { setFocusedField('nickname'); scrollToInput(250); }} 
+                        // ✅ 닉네임: 여기서부터는 아래쪽이라 스크롤 올림 (150)
+                        onFocus={() => { setFocusedField('nickname'); scrollToInput(150); }} 
                         onBlur={() => setFocusedField(null)} 
                         onSubmitEditing={() => phoneRef.current?.focus()} 
                     />
@@ -262,8 +261,8 @@ const LoginSignupModal = ({ visible, initialMode = 'login', onClose, onLoginSucc
                         placeholderTextColor={COLORS.textSecondary} 
                         keyboardType="phone-pad" 
                         returnKeyType="done" 
-                        // ✅ 누르면 맨 끝으로 스크롤 (키보드 피하기)
-                        onFocus={() => { setFocusedField('phone'); scrollToInput(400); }} 
+                        // ✅ 전화번호: 맨 아래이므로 많이 올림 (300)
+                        onFocus={() => { setFocusedField('phone'); scrollToInput(300); }} 
                         onBlur={() => setFocusedField(null)} 
                         onSubmitEditing={() => Keyboard.dismiss()} 
                     />
