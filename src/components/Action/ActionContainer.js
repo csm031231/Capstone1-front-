@@ -1,10 +1,10 @@
 // src/components/Action/ActionContainer.js
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, ActivityIndicator } from 'react-native'; 
 import EmptyState from '../common/EmptyState';
 import AIChatbotModal from '../common/AIChatbotModal'; 
 import COLORS from '../../constants/colors';
-import disasterActionService from '../../services/disasterActionService'; // ✅ 서비스 import 추가
+import disasterActionService from '../../services/disasterActionService'; 
 
 export default function ActionContainer() {
   
@@ -59,18 +59,26 @@ export default function ActionContainer() {
     }
   ]);
 
-  const [selectedAction, setSelectedAction] = useState(null);
   const [showAiChat, setShowAiChat] = useState(false);
+  
+  // ✅ 추가: 현재 열린 항목의 ID (null 또는 action.id)
+  const [openActionId, setOpenActionId] = useState(null);
+  // ✅ 추가: 로드된 행동요령 상세 데이터 저장
+  const [actionDetails, setActionDetails] = useState({});
+  // ✅ 추가: 로딩 상태
+  const [isLoading, setIsLoading] = useState(false);
 
-  // ✅ handleActionPress 함수를 async로 변경하고 서비스 호출 로직 추가
+  // ✅ handleActionPress 함수를 수정
   const handleActionPress = async (action) => {
-    setSelectedAction(action.id);
+    // 이미 열려 있으면 닫기
+    if (openActionId === action.id) {
+      setOpenActionId(null);
+      return;
+    }
     
-    //console.log('--- Action Press Called:', action.id); // 디버깅용
-    
-    try {
-      if (action.id === 'emergency') {
-        // 긴급신고 로직
+    // 긴급신고 로직 (Alert 유지)
+    if (action.id === 'emergency') {
+        setOpenActionId(null); // 다른 항목이 열려있다면 닫기
         Alert.alert(
           '긴급신고',
           '어떤 신고를 하시겠습니까?',
@@ -80,46 +88,103 @@ export default function ActionContainer() {
             { text: '경찰신고 (112)', onPress: () => Alert.alert('112 신고', '경찰신고가 접수되었습니다.') }
           ]
         );
-      } else if (action.id === 'shelter' || action.id === 'blackout') {
-        // 기타 특수 항목 (정전, 대피소)
-        Alert.alert(action.title, `${action.title} 상세 정보를 표시합니다.`);
-      } else {
-        // ✅ 재난 유형에 따른 행동 요령 데이터를 불러옴 (Category Code 사용)
-        const response = await disasterActionService.getActionsByCategory(action.id, 1, 1);
-        
-        if (response.success && response.items && response.items.length > 0) {
-          const firstAction = response.items[0];
-          
-          let alertContent = firstAction.content;
-          if (firstAction.url) {
-             alertContent += `\n\n[더보기: ${firstAction.url}]`;
-          }
-          
-          Alert.alert(
-            firstAction.title || action.title, 
-            alertContent
-          );
-        } else {
-          // 데이터는 불러왔으나 해당 카테고리에 내용이 없을 때
-          Alert.alert(action.title, `현재 ${action.title}에 대한 상세 행동요령을 찾을 수 없습니다.`);
+        return;
+    } 
+    
+    // 기타 특수 항목 (정전, 대피소) - Alert 대신 상세 내용으로 표시
+    if (action.id === 'shelter' || action.id === 'blackout') {
+      setActionDetails(prev => ({
+        ...prev,
+        [action.id]: {
+          title: action.title,
+          content: `${action.title} 상세 정보를 표시합니다. (구현 예정)`,
+          url: null
         }
+      }));
+      setOpenActionId(action.id);
+      return;
+    }
+
+    // 재난 유형에 따른 행동 요령 데이터 로드
+    setOpenActionId(action.id); // 항목을 즉시 열고 로딩 표시
+    setIsLoading(true);
+    
+    try {
+      const response = await disasterActionService.getActionsByCategory(action.id, 1, 1);
+      
+      if (response.success && response.items && response.items.length > 0) {
+        const firstAction = response.items[0];
+        
+        setActionDetails(prev => ({
+          ...prev,
+          [action.id]: {
+            title: firstAction.title || action.title,
+            content: firstAction.content,
+            url: firstAction.url
+          }
+        }));
+      } else {
+        // 데이터는 불러왔으나 해당 카테고리에 내용이 없을 때
+        setActionDetails(prev => ({
+          ...prev,
+          [action.id]: {
+            title: action.title,
+            content: `현재 ${action.title}에 대한 상세 행동요령을 찾을 수 없습니다.`,
+            url: null
+          }
+        }));
       }
     } catch (error) {
         console.error('행동요령 로드 실패:', error);
         // API 호출 자체가 실패했을 때 (서버 미작동 등)
-        Alert.alert('오류', '행동요령 데이터를 불러오는 데 실패했습니다.\n(서버 연결 상태를 확인하세요)');
+        setActionDetails(prev => ({
+          ...prev,
+          [action.id]: {
+            title: action.title,
+            content: '행동요령 데이터를 불러오는 데 실패했습니다.\n(서버 연결 상태를 확인하세요)',
+            url: null
+          }
+        }));
+    } finally {
+        setIsLoading(false);
     }
-    
-    setTimeout(() => {
-      setSelectedAction(null);
-    }, 200);
   };
 
+  // ✅ 상세 내용을 렌더링하는 컴포넌트 추가
+  const renderActionDetails = (actionId) => {
+    if (openActionId !== actionId) return null;
+    
+    const details = actionDetails[actionId];
+    
+    if (isLoading && !details) { // 처음 로딩 중일 때만 로딩 인디케이터 표시
+      return (
+        <View style={styles.detailsContainer}>
+          <ActivityIndicator size="small" color={COLORS.primaryDark} />
+          <Text style={styles.detailsText}>정보를 불러오는 중...</Text>
+        </View>
+      );
+    }
+    
+    if (!details) return null; // 로딩 후 데이터가 없을 경우
+
+    return (
+      <View style={styles.detailsContainer}>
+        <Text style={styles.detailsTitle}>{details.title}</Text>
+        <Text style={styles.detailsContent}>{details.content}</Text>
+        {details.url && (
+          <Text style={styles.detailsLink}>
+            [더보기: {details.url.length > 30 ? details.url.substring(0, 30) + '...' : details.url}]
+          </Text>
+        )}
+      </View>
+    );
+  };
+  
   return (
     <>
       <View style={styles.container}>
         <View style={styles.header}>
-          <Text style={styles.title}>🤖 재난 행동요령</Text>
+          <Text style={styles.title}>재난 행동요령</Text>
           <Text style={styles.subtitle}>긴급상황별 대응 방법을 빠르게 확인하세요</Text>
           
           <TouchableOpacity 
@@ -143,27 +208,33 @@ export default function ActionContainer() {
             />
           ) : (
             actions.map((action) => (
-              <TouchableOpacity
-                key={action.id}
-                style={[
-                  styles.actionItem,
-                  { backgroundColor: action.color },
-                  selectedAction === action.id && styles.selectedAction
-                ]}
-                onPress={() => handleActionPress(action)}
-                activeOpacity={0.8}
-              >
-                <View style={styles.actionIconContainer}>
-                  <Text style={styles.actionIcon}>{action.icon}</Text>
-                </View>
-                <View style={styles.actionContent}>
-                  <Text style={styles.actionTitle}>{action.title}</Text>
-                  <Text style={styles.actionSubtitle}>{action.subtitle}</Text>
-                </View>
-                <View style={styles.actionArrow}>
-                  <Text style={styles.arrowText}>›</Text>
-                </View>
-              </TouchableOpacity>
+              <React.Fragment key={action.id}>
+                <TouchableOpacity
+                  style={[
+                    styles.actionItem,
+                    { backgroundColor: action.color },
+                    openActionId === action.id && styles.selectedAction
+                  ]}
+                  onPress={() => handleActionPress(action)}
+                  activeOpacity={0.8}
+                >
+                  <View style={styles.actionIconContainer}>
+                    <Text style={styles.actionIcon}>{action.icon}</Text>
+                  </View>
+                  <View style={styles.actionContent}>
+                    <Text style={styles.actionTitle}>{action.title}</Text>
+                    <Text style={styles.actionSubtitle}>{action.subtitle}</Text>
+                  </View>
+                  <View style={[
+                    styles.actionArrow,
+                    openActionId === action.id && styles.arrowRotated
+                  ]}>
+                    <Text style={styles.arrowText}>⌵</Text>
+                  </View>
+                </TouchableOpacity>
+                {/* ✅ 상세 내용 렌더링 */}
+                {renderActionDetails(action.id)}
+              </React.Fragment>
             ))
           )}
         </ScrollView>
@@ -227,16 +298,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderRadius: 16,
     padding: 16,
-    marginBottom: 12,
     elevation: 4,
     shadowColor: COLORS.shadow,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,
     shadowRadius: 6,
+    overflow: 'hidden',
+    // 💡 열리지 않은 항목 간의 간격
+    marginBottom: 12, 
   },
   selectedAction: {
-    transform: [{ scale: 0.98 }],
-    opacity: 0.8,
+    // 항목이 열렸을 때 스타일 (모서리 둥글기 아래쪽 제거, marginBottom 제거)
+    borderBottomLeftRadius: 0, 
+    borderBottomRightRadius: 0,
+    marginBottom: 0,
+    opacity: 0.95,
   },
   actionIconContainer: {
     width: 50,
@@ -274,10 +350,57 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.3)',
+    // transition: 'transform 0.3s ease-in-out', // RN에서는 사용 불가 (JS 기반 애니메이션 사용)
+  },
+  arrowRotated: {
+    transform: [{ rotate: '180deg' }],
   },
   arrowText: {
     fontSize: 20,
     color: '#ffffff',
     fontWeight: 'bold',
+    marginTop: -2,
   },
+  // ✅ 추가: 상세 내용 스타일
+  detailsContainer: {
+    backgroundColor: COLORS.surface, 
+    padding: 16,
+    paddingTop: 8,
+    borderBottomLeftRadius: 16,
+    borderBottomRightRadius: 16,
+    marginBottom: 12, // 다음 항목과의 간격
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderTopWidth: 0, 
+    elevation: 2,
+    shadowColor: COLORS.shadow,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+  },
+  detailsTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: COLORS.textPrimary,
+    marginBottom: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.divider,
+    paddingBottom: 4,
+  },
+  detailsContent: {
+    fontSize: 14,
+    color: COLORS.textSecondary,
+    lineHeight: 20,
+    marginBottom: 8,
+  },
+  detailsLink: {
+    fontSize: 12,
+    color: COLORS.primaryDark,
+    textDecorationLine: 'underline',
+  },
+  detailsText: { // 로딩 텍스트 스타일
+    fontSize: 14,
+    color: COLORS.textSecondary,
+    marginLeft: 8,
+  }
 });

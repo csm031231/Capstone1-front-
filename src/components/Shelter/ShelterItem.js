@@ -110,10 +110,6 @@ export default function ShelterItem({ shelter, currentLocation, onPress, mapRef 
         `거리: ${utils.formatDistance(summary.distance)}\n소요시간: ${utils.formatDuration(summary.duration)}\n통행료: ${summary.tollFare > 0 ? summary.tollFare.toLocaleString() + '원' : '무료'}`,
         [
           {
-            text: '네이버 지도 앱으로 보기',
-            onPress: () => openNaverMap(),
-          },
-          {
             text: '확인',
             style: 'cancel',
           },
@@ -182,11 +178,6 @@ export default function ShelterItem({ shelter, currentLocation, onPress, mapRef 
           </Text>
           <Text style={styles.type}>{shelter.SHLT_SE_NM}</Text>
         </View>
-        <View style={styles.distanceContainer}>
-          <Text style={styles.distance}>
-            {utils.formatDistance(shelter.distance)}
-          </Text>
-        </View>
       </View>
       
       <Text style={styles.address} numberOfLines={2}>
@@ -194,12 +185,9 @@ export default function ShelterItem({ shelter, currentLocation, onPress, mapRef 
       </Text>
       
       <View style={styles.info}>
-        <Text style={styles.capacity}>
-          수용인원: {shelter.capacity?.toLocaleString() || '정보없음'}명
-        </Text>
-        <Text style={styles.contact}>
-          연락처: {shelter.contact || '정보없음'}
-        </Text>
+          <Text style={styles.distance}>
+           거리: {utils.formatDistance(shelter.distance)}
+          </Text>
       </View>
 
       {shelter.facilities && shelter.facilities.length > 0 && (

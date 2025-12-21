@@ -18,7 +18,7 @@ import userService from '../../services/userService';
 import { useAppState } from '../../store/AppContext'; 
 
 
-const UserProflile = ({ visible, onClose, onLogout }) => {
+const UserProfile = ({ visible, onClose, onLogout }) => {
   // ✅ 수정: updateUser를 제거하고 필요한 상태만 가져옵니다.
   const { user: globalUser, currentLocation, selectedTab } = useAppState(); 
 
@@ -153,6 +153,7 @@ const UserProflile = ({ visible, onClose, onLogout }) => {
     }
   };
 
+  // ✅ 로그아웃 함수 구현
   const handleLogout = () => {
     // ... (handleLogout 로직 유지)
   };
@@ -433,7 +434,11 @@ const UserProflile = ({ visible, onClose, onLogout }) => {
 
               {/* 로그아웃 */}
               <View style={styles.section}>
-                <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+                <TouchableOpacity 
+                  style={styles.logoutButton} 
+                  onPress={handleLogout}
+                  disabled={loading}
+                >
                   <Ionicons name="log-out-outline" size={24} color={COLORS.error} />
                   <Text style={styles.logoutText}>로그아웃</Text>
                 </TouchableOpacity>
@@ -569,7 +574,6 @@ const UserProflile = ({ visible, onClose, onLogout }) => {
                 </View>
               </View>
 
-              {/* 지역 선택 */}
               <View style={styles.section}>
                 <View style={styles.sectionHeader}>
                   <Ionicons name="list-outline" size={20} color={COLORS.primary} />
@@ -577,12 +581,12 @@ const UserProflile = ({ visible, onClose, onLogout }) => {
                 </View>
 
                 {regionLoading ? (
-                    <View style={styles.loadingContainer}>
-                      <ActivityIndicator size="large" color={COLORS.primary} />
-                      <Text style={styles.loadingText}>지역 목록 불러오는 중...</Text>
-                    </View>
+                  <View style={styles.loadingContainer}>
+                    <ActivityIndicator size="large" color={COLORS.primary} />
+                    <Text style={styles.loadingText}>지역 목록 불러오는 중...</Text>
+                  </View>
                 ) : availableProvinces.length === 0 ? (
-                    <Text style={styles.emptyRegionText}>지역 목록을 불러올 수 없습니다.</Text>
+                  <Text style={styles.emptyRegionText}>지역 목록을 불러올 수 없습니다.</Text>
                 ) : (
                     // availableProvinces 목록을 사용
                     availableProvinces.map((region) => {
@@ -590,7 +594,7 @@ const UserProflile = ({ visible, onClose, onLogout }) => {
                     const isSelected = selectedRegions.includes(region.id);
                     return (
                       <TouchableOpacity
-                        key={region.id} // key를 region.id로 설정
+                        key={region.id}
                         style={[
                           styles.regionSelectItem,
                           isSelected && styles.regionSelectItemSelected
@@ -953,4 +957,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default UserProflile;
+export default UserProfile;

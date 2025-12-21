@@ -1,5 +1,5 @@
 // src/services/chatbotService.js
-import { apiRequest, API_ENDPOINTS } from './apiConfig';
+import { apiRequest, API_ENDPOINTS } from './apiConfig'; // ✅ 상대 경로 수정
 
 class ChatbotService {
 
@@ -31,40 +31,11 @@ class ChatbotService {
     }
   }
 
+  // ✅ askSmartChatbot을 askChatbot을 호출하도록 변경 (백엔드 엔드포인트 통일)
   async askSmartChatbot(message, userLocation = null) {
-    try {
-      console.log('스마트 챗봇 API 요청:', API_ENDPOINTS.CHATBOT.ASK_SMART);
-      
-      const response = await apiRequest(API_ENDPOINTS.CHATBOT.ASK_SMART, {
-        method: 'POST',
-        body: JSON.stringify({
-          message: message,
-          user_location: userLocation,
-          use_vector_search: true
-        }),
-        skipAuth: true
-      });
-      
-      return {
-        success: true,
-        response: response.response,
-        sources: response.sources || [],
-        category: response.category,
-        is_emergency: response.is_emergency || false,
-        confidence_score: response.confidence_score,
-        search_method: response.search_method,
-        timestamp: response.timestamp
-      };
-      
-    } catch (error) {
-      console.error('스마트 챗봇 질문 실패:', error);
-      
-      if (error.message.includes('벡터 서비스가 비활성화')) {
-        return this.askChatbot(message, userLocation);
-      }
-      
-      return this.generateOfflineResponse(message);
-    }
+    console.log('스마트 챗봇 API 요청을 기본 챗봇으로 리디렉션');
+    // 백엔드에 /ask-smart 엔드포인트가 없으므로, 기본 /ask 엔드포인트를 사용하도록 askChatbot을 호출
+    return this.askChatbot(message, userLocation);
   }
 
   async getHealthStatus() {
