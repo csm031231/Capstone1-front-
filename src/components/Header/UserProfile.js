@@ -2,11 +2,62 @@
 // 📁 src/components/Header/UserProfile.js
 // ============================================
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, ActivityIndicator, TextInput, Modal } from 'react-native';
+import { 
+    View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, 
+    ActivityIndicator, TextInput, Modal, KeyboardAvoidingView, Platform 
+} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import COLORS from '../../constants/colors';
 import userService from '../../services/userService';
 
+// ✅ [핵심 수정] 렌더링 최적화를 위해 헬퍼 컴포넌트들을 메인 컴포넌트 밖으로 뺐습니다.
+// 이렇게 해야 입력할 때 포커스가 끊기지 않습니다.
+
+const MenuButton = ({ icon, title, description, onPress, color = COLORS.primary }) => (
+    <TouchableOpacity style={styles.menuButton} onPress={onPress} activeOpacity={0.7}>
+      <View style={[styles.menuButtonIcon, { backgroundColor: `${color}15` }]}>
+        <Ionicons name={icon} size={24} color={color} />
+      </View>
+      <View style={styles.menuButtonContent}>
+        <Text style={styles.menuButtonTitle}>{title}</Text>
+        <Text style={styles.menuButtonDescription}>{description}</Text>
+      </View>
+      <Ionicons name="chevron-forward" size={20} color={COLORS.textSecondary} />
+    </TouchableOpacity>
+);
+
+const EditField = ({ label, value, onChangeText, placeholder, keyboardType = 'default', icon, secureTextEntry = false }) => (
+    <View style={styles.editField}>
+      <Text style={styles.editFieldLabel}>{label}</Text>
+      <View style={styles.editFieldInputContainer}>
+        <Ionicons name={icon} size={20} color={COLORS.textSecondary} style={styles.editFieldIcon} />
+        <TextInput
+          style={styles.editFieldInput}
+          value={value}
+          onChangeText={onChangeText}
+          placeholder={placeholder}
+          placeholderTextColor={COLORS.textSecondary}
+          keyboardType={keyboardType}
+          secureTextEntry={secureTextEntry}
+          autoCapitalize="none"
+        />
+      </View>
+    </View>
+);
+
+const InfoRow = ({ icon, label, value, isMultiline = false }) => (
+    <View style={[styles.detailRow, isMultiline && styles.detailRowMultiline]}>
+      <View style={styles.detailLeft}>
+        <Ionicons name={icon} size={18} color={COLORS.textSecondary} style={styles.detailIcon} />
+        <Text style={styles.detailLabel}>{label}</Text>
+      </View>
+      <Text style={[styles.detailValue, isMultiline && styles.detailValueMultiline]}>
+        {value}
+      </Text>
+    </View>
+);
+
+// ===== 메인 컴포넌트 =====
 const UserProfile = ({ visible, onClose, onLogout }) => {
   const [userInfo, setUserInfo] = useState(null);
   const [loading, setLoading] = useState(true); 
@@ -100,7 +151,6 @@ const UserProfile = ({ visible, onClose, onLogout }) => {
       );
     };
 
-    // ✅ [수정] 빠르고 간단한 회원 탈퇴 처리
     const handleDeleteAccount = () => {
         Alert.alert(
             '회원 탈퇴',
@@ -111,21 +161,15 @@ const UserProfile = ({ visible, onClose, onLogout }) => {
                     text: '네', 
                     style: 'destructive',
                     onPress: async () => {
-                        // 1. 로딩 표시
                         setLoading(true);
-                        
-                        // 2. 서비스 호출 (무조건 성공 처리됨)
                         await userService.deleteAccount();
-                        
                         setLoading(false);
-
-                        // 3. 완료 알림 후 UI 정리
                         Alert.alert('탈퇴 완료', '회원 탈퇴가 완료되었습니다.', [
                             {
                                 text: '확인',
                                 onPress: () => {
-                                    onClose(); // 모달 닫기
-                                    if (onLogout) onLogout(); // 헤더 상태 갱신 (로그아웃됨)
+                                    onClose(); 
+                                    if (onLogout) onLogout(); 
                                 }
                             }
                         ]);
@@ -229,53 +273,12 @@ const UserProfile = ({ visible, onClose, onLogout }) => {
         return selectedNames.join('\n');
     };
 
-  const MenuButton = ({ icon, title, description, onPress, color = COLORS.primary }) => (
-    <TouchableOpacity style={styles.menuButton} onPress={onPress} activeOpacity={0.7}>
-      <View style={[styles.menuButtonIcon, { backgroundColor: `${color}15` }]}>
-        <Ionicons name={icon} size={24} color={color} />
-      </View>
-      <View style={styles.menuButtonContent}>
-        <Text style={styles.menuButtonTitle}>{title}</Text>
-        <Text style={styles.menuButtonDescription}>{description}</Text>
-      </View>
-      <Ionicons name="chevron-forward" size={20} color={COLORS.textSecondary} />
-    </TouchableOpacity>
-  );
-
-  const EditField = ({ label, value, onChangeText, placeholder, keyboardType = 'default', icon, secureTextEntry = false }) => (
-    <View style={styles.editField}>
-      <Text style={styles.editFieldLabel}>{label}</Text>
-      <View style={styles.editFieldInputContainer}>
-        <Ionicons name={icon} size={20} color={COLORS.textSecondary} style={styles.editFieldIcon} />
-        <TextInput
-          style={styles.editFieldInput}
-          value={value}
-          onChangeText={onChangeText}
-          placeholder={placeholder}
-          placeholderTextColor={COLORS.textSecondary}
-          keyboardType={keyboardType}
-          secureTextEntry={secureTextEntry}
-          autoCapitalize="none"
-        />
-      </View>
-    </View>
-  );
-
-  const InfoRow = ({ icon, label, value, isMultiline = false }) => (
-    <View style={[styles.detailRow, isMultiline && styles.detailRowMultiline]}>
-      <View style={styles.detailLeft}>
-        <Ionicons name={icon} size={18} color={COLORS.textSecondary} style={styles.detailIcon} />
-        <Text style={styles.detailLabel}>{label}</Text>
-      </View>
-      <Text style={[styles.detailValue, isMultiline && styles.detailValueMultiline]}>
-        {value}
-      </Text>
-    </View>
-  );
-
   return (
     <Modal visible={visible} animationType="slide" transparent={false} onRequestClose={onClose}>
-      <View style={styles.container}>
+      <KeyboardAvoidingView 
+        style={styles.container} 
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
         <View style={styles.header}>
           <TouchableOpacity onPress={onClose} style={styles.backButton}>
             <Ionicons name="arrow-back" size={24} color={COLORS.textPrimary} />
@@ -286,7 +289,7 @@ const UserProfile = ({ visible, onClose, onLogout }) => {
           </TouchableOpacity>
         </View>
 
-        <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+        <ScrollView style={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
           {loading ? (
             <View style={styles.loadingContainer}>
               <ActivityIndicator size="large" color={COLORS.primary} />
@@ -361,9 +364,12 @@ const UserProfile = ({ visible, onClose, onLogout }) => {
           )}
         </ScrollView>
         
-        {/* 비밀번호 변경 모달 */}
+        {/* 비밀번호 변경 모달 (KeyboardAvoidingView 적용) */}
         <Modal visible={showPasswordModal} animationType="slide" transparent={false} onRequestClose={() => setShowPasswordModal(false)}>
-           <View style={styles.container}>
+           <KeyboardAvoidingView 
+             style={styles.container}
+             behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+           >
                 <View style={styles.header}>
                     <TouchableOpacity onPress={() => { setShowPasswordModal(false); setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' }); }} style={styles.backButton}>
                         <Ionicons name="arrow-back" size={24} color={COLORS.textPrimary} />
@@ -371,7 +377,11 @@ const UserProfile = ({ visible, onClose, onLogout }) => {
                     <Text style={styles.headerTitle}>비밀번호 변경</Text>
                     <View style={{ width: 40 }} />
                 </View>
-                <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+                <ScrollView 
+                    style={styles.content} 
+                    showsVerticalScrollIndicator={false}
+                    keyboardShouldPersistTaps="handled" // 키보드 밖을 터치해도 바로 내려가지 않게 설정
+                >
                     <View style={styles.section}>
                         <View style={styles.profileCard}>
                             <View style={styles.editForm}>
@@ -387,7 +397,7 @@ const UserProfile = ({ visible, onClose, onLogout }) => {
                         </View>
                     </View>
                 </ScrollView>
-           </View>
+           </KeyboardAvoidingView>
         </Modal>
 
         {/* 관심지역 설정 모달 */}
@@ -436,7 +446,7 @@ const UserProfile = ({ visible, onClose, onLogout }) => {
                 </TouchableOpacity>
            </View>
         </Modal>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 };
